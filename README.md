@@ -20,7 +20,7 @@ This project implements a Deep Q-Network (DQN) agent to solve the Routing and Sp
 Install required dependencies:
 
 ```bash
-pip install gymnasium networkx numpy pandas matplotlib stable-baselines3 torch rich tqdm
+pip install gymnasium networkx numpy pandas matplotlib stable-baselines3 torch rich tqdm tensorboard
 ```
 
 ### Training
