@@ -1,0 +1,11 @@
+# Requirements for RSA DQN Project
+gymnasium>=0.29.0
+stable-baselines3>=2.0.0
+torch>=2.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+networkx>=3.0
+matplotlib>=3.7.0
+rich
+tqdm
+seaborn
