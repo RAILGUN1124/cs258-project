@@ -371,5 +371,6 @@ The results validate that DQN successfully learns sophisticated routing strategi
 2. Stable-Baselines3: https://stable-baselines3.readthedocs.io/
 3. Gymnasium: https://gymnasium.farama.org/
 
+4. AI tools: Claude Sonnet 4.5
 ---
 
