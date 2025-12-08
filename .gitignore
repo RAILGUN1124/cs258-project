@@ -50,8 +50,7 @@ tensorboard_logs/
 checkpoints/
 
 # Results and Logs
-*.log
-logs/
+
 
 # Temporary files
 *.tmp
