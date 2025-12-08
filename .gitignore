@@ -43,13 +43,15 @@ env/
 
 # Machine Learning / Training
 models/*.zip
+tensorboard_logs/
 *.pth
 *.pt
 *.ckpt
 checkpoints/
 
-
-
+# Results and Logs
+*.log
+logs/
 
 # Temporary files
 *.tmp
