@@ -18,51 +18,104 @@ import csv
 
 class RSAEnv(gym.Env):
     """
-    Custom Gym environment for Routing and Spectrum Allocation problem.
+    Custom Gym environment for Routing and Spectrum Allocation (RSA) problem.
     
-    State: Network state including link utilizations and current request
-    Action: Select one of 8 predefined paths
-    Reward: -1 for blocked requests, 0 for successful allocation
+    This environment models an optical communication network where an RL agent
+    must learn to route requests and allocate wavelengths to minimize blocking.
+    
+    RL FORMULATION:
+    ---------------
+    State Space (35-dim):
+        - Link utilizations (12 values): How busy each link is (0.0-1.0)
+        - Available wavelengths per link (12 values): Normalized free capacity
+        - Current request features (3 values): source, destination, holding_time
+        - Path availability (8 binary values): Which paths have free wavelengths
+    
+    Action Space (8 discrete actions):
+        - Each action corresponds to selecting one of 8 predefined paths
+        - Actions 0-1: Paths for (0→3)
+        - Actions 2-3: Paths for (0→4)
+        - Actions 4-5: Paths for (7→3)
+        - Actions 6-7: Paths for (7→4)
+    
+    Reward Function:
+        - Sparse rewards: -1 for blocking (failure), 0 for success
+        - Encourages agent to minimize blocking rate
+        - Episode reward = -(number of blocked requests)
+    
+    CONSTRAINTS ENFORCED:
+    --------------------
+    1. Wavelength Continuity: Same wavelength must be used on ALL links in path
+    2. Capacity Constraint: Each link has limited wavelengths (10 or 20)
+    3. Conflict Constraint: No two lightpaths can share same wavelength on same link
+    4. Time-based expiration: Lightpaths automatically release after holding_time
+    
+    WHY THIS MATTERS:
+    ----------------
+    RSA is NP-hard and critical for real optical networks. Traditional heuristics
+    (shortest path, first-fit) often perform poorly. DQN can learn sophisticated
+    strategies that balance path length, current utilization, and future demand.
     """
     
     metadata = {'render.modes': ['human']}
     
     # Predefined paths for each source-destination pair
+    # 
+    # Using predefined paths (vs. on-the-fly computation) is common in optical
+    # networks because:
+    # 1. Reduces computational overhead during routing
+    # 2. Paths can be pre-engineered for quality (e.g., avoid congestion-prone links)
+    # 3. Simplifies the action space for RL (8 discrete actions vs. complex path search)
+    # 4. Mirrors real-world practice: ISPs often use k-shortest paths
+    #
+    # For each (source, destination) pair, we provide 2 alternate paths:
+    # - Usually one shorter path (lower resource usage)
+    # - One longer path (provides alternate route, better load balancing)
     PATHS = {
         (0, 3): [
-            [0, 1, 2, 3],          # P1
-            [0, 8, 7, 6, 3]        # P2
+            [0, 1, 2, 3],          # P1: 3 hops (shorter)
+            [0, 8, 7, 6, 3]        # P2: 4 hops (longer, alternate)
         ],
         (0, 4): [
-            [0, 1, 5, 4],          # P3
-            [0, 8, 7, 6, 3, 4]     # P4
+            [0, 1, 5, 4],          # P3: 3 hops (shorter)
+            [0, 8, 7, 6, 3, 4]     # P4: 5 hops (longer, diverse route)
         ],
         (7, 3): [
-            [7, 1, 2, 3],          # P5
-            [7, 6, 3]              # P6
+            [7, 1, 2, 3],          # P5: 3 hops
+            [7, 6, 3]              # P6: 2 hops (shortest path for this pair!)
         ],
         (7, 4): [
-            [7, 1, 5, 4],          # P7
-            [7, 6, 3, 4]           # P8
+            [7, 1, 5, 4],          # P7: 3 hops
+            [7, 6, 3, 4]           # P8: 3 hops (via different intermediate nodes)
         ]
     }
     
     def __init__(self, capacity: int = 20, request_file: Optional[str] = None, 
                  requests: Optional[List[Request]] = None):
         """
-        Initialize the RSA environment.
+        Initialize the RSA environment with network topology and request sequence.
         
         Args:
-            capacity: Number of wavelengths per link
-            request_file: Path to CSV file with requests
+            capacity: Number of wavelengths per link (typically 10 or 20)
+                     Lower capacity = harder problem with more blocking
+            request_file: Path to CSV file with request sequence
+                         CSV format: source,destination,holding_time
             requests: List of Request objects (alternative to request_file)
+                     Used for programmatic environment creation
+        
+        The initialization:
+        1. Creates network topology (9 nodes, 12 links)
+        2. Configures wavelength capacity for each link
+        3. Loads the sequence of requests to be served
+        4. Defines observation and action spaces for RL
         """
         super(RSAEnv, self).__init__()
         
         self.capacity = capacity
         self.graph = generate_sample_graph()
         
-        # Update link capacities
+        # Initialize all links with specified capacity and empty wavelength state
+        # This ensures consistent starting state across episodes
         for u, v, data in self.graph.edges(data=True):
             data['state'].capacity = capacity
             data['state'].wavelengths = [False] * capacity
@@ -78,14 +131,31 @@ class RSAEnv(gym.Env):
             raise ValueError("Must provide either request_file or requests")
         
         # Action space: 8 possible paths (indexed 0-7)
+        # Discrete action space is ideal for DQN, which learns Q(s,a) for each action
         self.action_space = spaces.Discrete(8)
         
-        # Observation space: 
-        # - Link utilizations (12 links)
-        # - Available wavelengths per link (12 links)
-        # - Current request (source, destination, holding_time normalized)
-        # - Path availability for each of 8 paths (binary)
-        obs_dim = 12 + 12 + 3 + 8
+        # Observation space (35 dimensions): Carefully designed to give agent
+        # all information needed to make intelligent routing decisions
+        # 
+        # Component breakdown:
+        # 1. Link utilizations (12 values): Shows current network load
+        #    - Helps agent avoid congested paths
+        #    - Values in [0.0, 1.0] where 1.0 = fully utilized
+        # 
+        # 2. Available wavelengths per link (12 values): Remaining capacity
+        #    - Normalized by capacity: available/capacity
+        #    - Indicates how "tight" resources are on each link
+        # 
+        # 3. Current request features (3 values): What needs to be routed
+        #    - source/8, destination/8 (normalized node IDs)
+        #    - holding_time/100 (normalized duration)
+        #    - Tells agent the demand characteristics
+        # 
+        # 4. Path availability (8 binary values): Feasibility indicators
+        #    - 1.0 if path has at least one free wavelength, 0.0 if blocked
+        #    - Prevents agent from selecting infeasible paths
+        #    - Speeds up learning by filtering invalid actions
+        obs_dim = 12 + 12 + 3 + 8  # Total: 35 dimensions
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_dim,), dtype=np.float32
         )
@@ -143,15 +213,31 @@ class RSAEnv(gym.Env):
     
     def step(self, action: int):
         """
-        Execute one time step.
+        Execute one time step in the environment (core RL training loop).
+        
+        This is called once per request. The agent observes state, chooses an
+        action (path), and receives reward based on success/failure.
+        
+        Execution order is critical:
+        1. Release expired lightpaths (time progresses)
+        2. Attempt to allocate current request on selected path
+        3. Compute reward (-1 if blocked, 0 if successful)
+        4. Advance to next request
+        5. Return new observation and metadata
         
         Args:
             action: Index of path to use (0-7)
+                   Agent's decision about which route to take
             
         Returns:
-            observation, reward, terminated, truncated, info
+            tuple: (observation, reward, terminated, truncated, info)
+                - observation: New state after action (35-dim array)
+                - reward: -1.0 if blocked, 0.0 if successful
+                - terminated: True if all requests processed
+                - truncated: Always False (no time limits)
+                - info: Dict with episode statistics
         """
-        # Process expired lightpaths first
+        # Process expired lightpaths first (free up resources before new allocation)
         self._process_expirations()
         
         # Try to allocate the request on the selected path
@@ -179,20 +265,41 @@ class RSAEnv(gym.Env):
         return obs, reward, terminated, truncated, info
     
     def _process_expirations(self):
-        """Release lightpaths that have expired"""
+        """
+        Release lightpaths whose holding time has expired.
+        
+        This method is critical for dynamic resource management. Unlike static
+        allocation, optical networks have time-varying demand:
+        - When holding_time expires, wavelengths are automatically released
+        - Released wavelengths become available for new requests
+        - Simulates realistic network behavior (calls end, bandwidth is freed)
+        
+        Called at the START of each step (before allocating new request) to
+        ensure state is up-to-date. This temporal ordering matters:
+        1. Release expired resources
+        2. Update network state
+        3. Attempt to allocate new request
+        
+        Why this is important for learning:
+        - Agent must consider holding_time when making decisions
+        - Short-lived requests free resources quickly (lower risk)
+        - Long-lived requests block resources longer (higher opportunity cost)
+        - DQN learns to balance these trade-offs
+        """
         current_time = self.current_step
         expired_ids = []
         
+        # Find all lightpaths that have reached their expiration time
         for req_id, (path, wavelength, expiration_time) in self.active_lightpaths.items():
             if current_time >= expiration_time:
                 expired_ids.append(req_id)
-                # Release wavelength on all links in the path
+                # Release wavelength on ALL links in the path (maintains consistency)
                 for i in range(len(path) - 1):
                     u, v = path[i], path[i + 1]
                     link_state = self._get_link_state(u, v)
                     link_state.release_wavelength(wavelength)
         
-        # Remove expired lightpaths
+        # Remove from tracking dictionary
         for req_id in expired_ids:
             del self.active_lightpaths[req_id]
     
@@ -238,13 +345,32 @@ class RSAEnv(gym.Env):
     
     def _find_available_wavelength(self, path: List[int]) -> Optional[int]:
         """
-        Find the smallest wavelength index available on all links in path.
+        Find a wavelength available on ALL links in the path (continuity constraint).
+        
+        This is THE CORE of the RSA problem! Due to wavelength continuity constraint,
+        we cannot convert wavelengths at intermediate nodes. Therefore, the SAME
+        wavelength must be free on EVERY link in the path.
+        
+        Algorithm (First-Fit):
+        1. For each link in path, get set of free wavelengths
+        2. Compute intersection: wavelengths free on ALL links
+        3. Return smallest index (first-fit heuristic)
+        4. Return None if intersection is empty (→ BLOCKING)
+        
+        Example:
+        Path: [0, 1, 2, 3]
+        Link (0,1) free: {0, 2, 5, 7}
+        Link (1,2) free: {0, 3, 5, 9}
+        Link (2,3) free: {0, 1, 5, 8}
+        Intersection: {0, 5} → Returns 0 (first-fit)
+        
+        If no wavelength is common to all links → blocking occurs!
         
         Args:
-            path: List of node indices forming the path
+            path: List of node indices forming the path [n1, n2, n3, ...]
             
         Returns:
-            Wavelength index or None if no wavelength available
+            int: Wavelength index if available, None if request must be blocked
         """
         # Get available wavelengths for each link
         available_sets = []
@@ -311,39 +437,59 @@ class RSAEnv(gym.Env):
     
     def _get_observation(self) -> np.ndarray:
         """
-        Construct observation vector.
+        Construct the observation vector that DQN uses to make decisions.
+        
+        This is a carefully designed state representation that balances:
+        - Completeness: Contains all info needed for optimal decisions
+        - Compactness: Small enough for neural network to learn efficiently
+        - Normalization: All values in [0, 1] for stable learning
+        
+        The observation gives the agent both GLOBAL information (network state)
+        and LOCAL information (current request), enabling it to learn policies
+        that consider both immediate and future impacts.
         
         Returns:
-            Numpy array of shape (obs_dim,)
+            np.ndarray: Observation vector of shape (35,), dtype float32
         """
         obs = []
         
-        # Link utilizations (12 links)
+        # PART 1: Link utilizations (12 values)
+        # Shows which links are congested. Helps agent learn to avoid overloaded paths.
+        # Sorted order ensures consistent observation structure across episodes.
         for u, v, data in sorted(self.graph.edges(data=True)):
             obs.append(data['state'].utilization)
         
-        # Available wavelengths per link (normalized, 12 links)
+        # PART 2: Available wavelengths per link (12 values, normalized)
+        # Indicates remaining capacity on each link. Crucial for predicting whether
+        # future requests can be served. Normalized by capacity for scale-invariance.
         for u, v, data in sorted(self.graph.edges(data=True)):
             available = data['state'].get_available_count()
-            obs.append(available / self.capacity)
+            obs.append(available / self.capacity)  # Normalize to [0, 1]
         
-        # Current request features (source, destination, holding_time normalized)
+        # PART 3: Current request features (3 values)
+        # Tells agent WHAT needs to be routed. The holding_time is particularly
+        # important: long-lived requests lock up resources, so agent may prefer
+        # longer paths for them (to preserve shorter paths for future requests).
         if self.current_request:
-            obs.append(self.current_request.source / 8.0)  # Normalize by max node id
+            obs.append(self.current_request.source / 8.0)  # Normalize node ID
             obs.append(self.current_request.destination / 8.0)
-            obs.append(min(self.current_request.holding_time / 100.0, 1.0))  # Normalize
+            obs.append(min(self.current_request.holding_time / 100.0, 1.0))  # Cap at 1.0
         else:
-            obs.extend([0.0, 0.0, 0.0])
+            obs.extend([0.0, 0.0, 0.0])  # Episode ended, use zeros
         
-        # Path availability (8 paths, binary)
+        # PART 4: Path availability mask (8 binary values)
+        # CRITICAL for learning efficiency! Tells agent which actions are valid.
+        # - 1.0 = path has free wavelength (action will succeed if chosen)
+        # - 0.0 = path has no free wavelength (action will cause blocking)
+        # This dramatically speeds up learning by reducing exploration of bad actions.
         for action in range(8):
             path = self._get_path_for_action(action)
             if path is not None:
-                # Check if at least one wavelength is available
+                # Check if at least one wavelength is available on entire path
                 available_wl = self._find_available_wavelength(path)
                 obs.append(1.0 if available_wl is not None else 0.0)
             else:
-                obs.append(0.0)  # Invalid path for current request
+                obs.append(0.0)  # Invalid path for current request's src-dst pair
         
         return np.array(obs, dtype=np.float32)
     
