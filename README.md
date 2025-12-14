@@ -386,7 +386,7 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 ![Training Capacity 20](plots/training_capacity_20.png)
 
 - **Learning Curve**: The episode rewards show steady improvement over training episodes, starting from -77 and improving to near-zero blocking by the end
-- **Blocking Rate**: Decreases from initial random policy (~70-80% blocking) to optimized policy (3.69% on training set)
+- **Blocking Rate**: Decreases from initial random policy (~70-80% blocking) to optimized policy (0.75% on training set)
 - **Convergence**: Model shows strong learning, achieving near-perfect performance
 
 **Training Metrics** (last 100 episodes):
@@ -429,7 +429,7 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 
 ![Training Capacity 10](plots/training_capacity_10.png)
 
-- **Learning Curve**: Shows more variability due to resource constraints, with rewards improving from -80 to -5.78 on average
+- **Learning Curve**: Shows more variability due to resource constraints, with rewards improving from -80 to -3.45 on average
 - **Blocking Rate**: Higher than capacity=20 due to limited resources (50% fewer wavelengths)
 - **Learning**: Agent learns sophisticated strategies to balance between path length and wavelength availability
 
