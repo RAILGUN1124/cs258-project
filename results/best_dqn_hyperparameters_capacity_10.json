@@ -1,25 +1,25 @@
 {
-  "best_trial_number": 44,
-  "best_blocking_rate": 0.12244999999999999,
+  "best_trial_number": 75,
+  "best_blocking_rate": 0.08800000000000001,
   "best_params": {
-    "learning_rate": 2.78653872562099e-05,
+    "learning_rate": 0.00027960716845474735,
     "buffer_size": 100000,
-    "learning_starts": 921,
+    "learning_starts": 692,
     "batch_size": 128,
-    "tau": 0.01678445113571085,
-    "gamma": 0.9996007314306421,
-    "train_freq": 1,
-    "gradient_steps": 2,
-    "target_update_interval": 3645,
-    "exploration_fraction": 0.20913688873938494,
-    "exploration_initial_eps": 0.9538258907476982,
-    "exploration_final_eps": 0.010454736008238236,
-    "net_arch_size": 64,
+    "tau": 0.017350912411417393,
+    "gamma": 0.9622276108490772,
+    "train_freq": 4,
+    "gradient_steps": 1,
+    "target_update_interval": 3877,
+    "exploration_fraction": 0.1010251298462479,
+    "exploration_initial_eps": 0.9469184699809786,
+    "exploration_final_eps": 0.0159164577309629,
+    "net_arch_size": 128,
     "net_arch_depth": 2,
     "activation_fn": "tanh"
   },
   "user_attrs": {
-    "mean_reward": -12.244999885559082,
-    "std_blocking_rate": 0.18964571574385752
+    "mean_reward": -8.800000190734863,
+    "std_blocking_rate": 0.15450566332662374
   }
 }
