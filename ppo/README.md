@@ -108,10 +108,10 @@ At each time step (one request):
 
 The action space is `Discrete(8)` mapping to pre-defined paths (P1..P8):
 
-- Actions 0–1: paths for (0→3)
-- Actions 2–3: paths for (0→4)
-- Actions 4–5: paths for (7→3)
-- Actions 6–7: paths for (7→4)
+- Actions 0–1: paths for (0->3)
+- Actions 2–3: paths for (0->4)
+- Actions 4–5: paths for (7->3)
+- Actions 6–7: paths for (7->4)
 
 Invalid actions for the current request are treated as blocking (environment
 returns no allocation). This keeps the action interface fixed for PPO.

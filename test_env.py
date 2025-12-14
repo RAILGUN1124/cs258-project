@@ -25,20 +25,20 @@ def test_environment():
     
     try:
         env = RSAEnv(capacity=20, request_file=request_file)
-        print("   ✓ Environment created successfully")
+        print("    Environment created successfully")
     except Exception as e:
-        print(f"   ✗ Error creating environment: {e}")
+        print(f"    Error creating environment: {e}")
         return False
     
     # Test 2: Reset
     print("\n2. Testing environment reset...")
     try:
         obs, info = env.reset()
-        print(f"   ✓ Reset successful")
+        print(f"    Reset successful")
         print(f"   Observation shape: {obs.shape}")
         print(f"   Info: {info}")
     except Exception as e:
-        print(f"   ✗ Error resetting: {e}")
+        print(f"    Error resetting: {e}")
         return False
     
     # Test 3: Step execution
@@ -46,13 +46,13 @@ def test_environment():
     try:
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
-        print(f"   ✓ Step successful")
+        print(f"    Step successful")
         print(f"   Action: {action}")
         print(f"   Reward: {reward}")
         print(f"   Terminated: {terminated}")
         print(f"   Info: {info}")
     except Exception as e:
-        print(f"   ✗ Error stepping: {e}")
+        print(f"    Error stepping: {e}")
         return False
     
     # Test 4: Full episode
@@ -71,24 +71,24 @@ def test_environment():
             if terminated or truncated:
                 break
         
-        print(f"   ✓ Episode completed")
+        print(f"    Episode completed")
         print(f"   Steps: {steps}")
         print(f"   Total reward: {total_reward}")
         print(f"   Blocking rate: {info['blocking_rate']:.3f}")
         print(f"   Blocked: {info['blocked']}, Successful: {info['successful']}")
     except Exception as e:
-        print(f"   ✗ Error during episode: {e}")
+        print(f"    Error during episode: {e}")
         return False
     
     # Test 5: Network graph
     print("\n5. Testing network graph...")
     try:
         graph = generate_sample_graph()
-        print(f"   ✓ Graph created")
+        print(f"    Graph created")
         print(f"   Nodes: {graph.number_of_nodes()}")
         print(f"   Edges: {graph.number_of_edges()}")
     except Exception as e:
-        print(f"   ✗ Error with graph: {e}")
+        print(f"    Error with graph: {e}")
         return False
     
     # Test 6: Different capacities
@@ -97,13 +97,13 @@ def test_environment():
         try:
             env_test = RSAEnv(capacity=cap, request_file=request_file)
             env_test.reset()
-            print(f"   ✓ Capacity {cap} works")
+            print(f"    Capacity {cap} works")
         except Exception as e:
-            print(f"   ✗ Error with capacity {cap}: {e}")
+            print(f"    Error with capacity {cap}: {e}")
             return False
     
     print("\n" + "=" * 60)
-    print("All tests passed! ✓")
+    print("All tests passed! ")
     print("=" * 60)
     return True
 
@@ -118,9 +118,9 @@ def test_path_definitions():
     paths = RSAEnv.PATHS
     print(f"\nDefined paths:")
     for (src, dst), path_list in paths.items():
-        print(f"\n  Source {src} → Destination {dst}:")
+        print(f"\n  Source {src} -> Destination {dst}:")
         for i, path in enumerate(path_list, 1):
-            print(f"    P{i}: {' → '.join(map(str, path))}")
+            print(f"    P{i}: {' -> '.join(map(str, path))}")
     
     print("\n" + "=" * 60)
 
@@ -135,9 +135,9 @@ if __name__ == '__main__':
     test_path_definitions()
     
     if success:
-        print("\n✓ Environment is ready for training!")
+        print("\n Environment is ready for training!")
         print("\nNext steps:")
         print("  1. Run 'python dqn_runner.py' to train the models")
         print("  2. Run 'python evaluate.py' to evaluate trained models")
     else:
-        print("\n✗ Environment tests failed. Please fix the errors above.")
+        print("\n Environment tests failed. Please fix the errors above.")

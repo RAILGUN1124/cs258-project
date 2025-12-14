@@ -74,9 +74,9 @@ def print_network_info():
     from rsaenv import RSAEnv
     
     for (src, dst), paths in sorted(RSAEnv.PATHS.items()):
-        print(f"\n{src} → {dst}:")
+        print(f"\n{src} -> {dst}:")
         for i, path in enumerate(paths, 1):
-            path_str = " → ".join(map(str, path))
+            path_str = " -> ".join(map(str, path))
             print(f"  Path {i}: {path_str} ({len(path)-1} hops)")
     
     print("\n" + "="*70)
@@ -94,7 +94,7 @@ def print_path_statistics():
     all_path_lengths = []
     
     for (src, dst), paths in sorted(RSAEnv.PATHS.items()):
-        print(f"\n{src} → {dst}:")
+        print(f"\n{src} -> {dst}:")
         for i, path in enumerate(paths, 1):
             hops = len(path) - 1
             all_path_lengths.append(hops)

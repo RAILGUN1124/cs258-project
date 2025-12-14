@@ -87,7 +87,7 @@ def evaluate_model(model, capacity, eval_files, deterministic=True):
     # Iterate through all evaluation files (each file = one episode)
     for i, req_file in enumerate(eval_files):
         # Create fresh environment for this episode
-        # Each file has different request sequence → tests generalization
+        # Each file has different request sequence -> tests generalization
         env = RSAEnv(capacity=capacity, request_file=req_file)
         
         # Reset environment to initial state (all wavelengths free)
@@ -98,7 +98,7 @@ def evaluate_model(model, capacity, eval_files, deterministic=True):
         # Run episode: process all requests in this file
         while not done:
             # Get action from trained model
-            # deterministic=True → chooses action with max Q(s,a)
+            # deterministic=True -> chooses action with max Q(s,a)
             # _states is for recurrent policies (not used in MLP)
             action, _states = model.predict(obs, deterministic=deterministic)
             

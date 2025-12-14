@@ -100,7 +100,7 @@ project/
 
 The network consists of 9 nodes (0-8) connected in a ring topology with additional cross-links:
 
-- **Ring links**: Each node connects to the next in sequence (0→1, 1→2, ..., 8→0)
+- **Ring links**: Each node connects to the next in sequence (0->1, 1->2, ..., 8->0)
 - **Additional links**: (1,7), (1,5), (3,6)
 
 Total: **12 bidirectional links**
@@ -192,16 +192,16 @@ The action space is discrete with 8 actions, representing predefined paths for e
 
 ### Path Definitions
 
-| Action | Source → Dest | Path |
+| Action | Source -> Dest | Path |
 |--------|---------------|------|
-| 0 | 0 → 3 | [0, 1, 2, 3] (P1) |
-| 1 | 0 → 3 | [0, 8, 7, 6, 3] (P2) |
-| 2 | 0 → 4 | [0, 1, 5, 4] (P3) |
-| 3 | 0 → 4 | [0, 8, 7, 6, 3, 4] (P4) |
-| 4 | 7 → 3 | [7, 1, 2, 3] (P5) |
-| 5 | 7 → 3 | [7, 6, 3] (P6) |
-| 6 | 7 → 4 | [7, 1, 5, 4] (P7) |
-| 7 | 7 → 4 | [7, 6, 3, 4] (P8) |
+| 0 | 0 -> 3 | [0, 1, 2, 3] (P1) |
+| 1 | 0 -> 3 | [0, 8, 7, 6, 3] (P2) |
+| 2 | 0 -> 4 | [0, 1, 5, 4] (P3) |
+| 3 | 0 -> 4 | [0, 8, 7, 6, 3, 4] (P4) |
+| 4 | 7 -> 3 | [7, 1, 2, 3] (P5) |
+| 5 | 7 -> 3 | [7, 6, 3] (P6) |
+| 6 | 7 -> 4 | [7, 1, 5, 4] (P7) |
+| 7 | 7 -> 4 | [7, 6, 3, 4] (P8) |
 
 For each request, only 2 out of 8 actions are valid (corresponding to the source-destination pair). Invalid actions result in blocking.
 

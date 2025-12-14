@@ -15,7 +15,7 @@ TRAINING PIPELINE:
 KEY DESIGN CHOICES:
 ------------------
 - DQN algorithm: Effective for discrete action spaces (8 paths)
-- MLP policy: Fully connected network [input → 64 → 64 → 8 Q-values]
+- MLP policy: Fully connected network [input to 64 to 64 to 8 Q-values]
 - Experience replay: Breaks correlation, improves sample efficiency
 - Target network: Stabilizes learning (updated every 1000 steps)
 - Epsilon-greedy: Balances exploration vs. exploitation
@@ -350,7 +350,7 @@ def plot_training_results(metrics, capacity, save_path=None):
     WHY BOTH METRICS:
     - Episode reward is the RL objective (what agent optimizes)
     - Blocking rate is the domain metric (what we actually care about)
-    - They should be inversely correlated: reward ↑ ⇔ blocking ↓
+    - They should be inversely correlated: reward increase is inversely correlated with blocking decrease
     
     Args:
         metrics: Dictionary with keys 'episode_rewards', 'episode_blocking_rates'

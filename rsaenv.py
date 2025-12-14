@@ -33,10 +33,10 @@ class RSAEnv(gym.Env):
     
     Action Space (8 discrete actions):
         - Each action corresponds to selecting one of 8 predefined paths
-        - Actions 0-1: Paths for (0→3)
-        - Actions 2-3: Paths for (0→4)
-        - Actions 4-5: Paths for (7→3)
-        - Actions 6-7: Paths for (7→4)
+        - Actions 0-1: Paths for (0->3)
+        - Actions 2-3: Paths for (0->4)
+        - Actions 4-5: Paths for (7->3)
+        - Actions 6-7: Paths for (7->4)
     
     Reward Function:
         - Sparse rewards: -1 for blocking (failure), 0 for success
@@ -355,16 +355,16 @@ class RSAEnv(gym.Env):
         1. For each link in path, get set of free wavelengths
         2. Compute intersection: wavelengths free on ALL links
         3. Return smallest index (first-fit heuristic)
-        4. Return None if intersection is empty (→ BLOCKING)
+        4. Return None if intersection is empty (-> BLOCKING)
         
         Example:
         Path: [0, 1, 2, 3]
         Link (0,1) free: {0, 2, 5, 7}
         Link (1,2) free: {0, 3, 5, 9}
         Link (2,3) free: {0, 1, 5, 8}
-        Intersection: {0, 5} → Returns 0 (first-fit)
+        Intersection: {0, 5} -> Returns 0 (first-fit)
         
-        If no wavelength is common to all links → blocking occurs!
+        If no wavelength is common to all links -> blocking occurs!
         
         Args:
             path: List of node indices forming the path [n1, n2, n3, ...]
