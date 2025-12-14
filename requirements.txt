@@ -10,3 +10,4 @@ rich
 tqdm
 seaborn
 tensorboard
+optuna

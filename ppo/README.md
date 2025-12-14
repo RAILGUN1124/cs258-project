@@ -21,50 +21,116 @@ Table of Contents
 
 ### Prerequisites
 
-Install required dependencies (same as project root):
+Install required dependencies (prefer creating a venv in the project root):
 
 ```bash
-pip install gymnasium networkx numpy pandas matplotlib stable-baselines3 torch rich tqdm tensorboard
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### Training
+If you prefer not to use a venv, install packages globally:
 
-To train PPO agents (both capacity configurations):
+```bash
+pip install -r requirements.txt
+```
 
-From the project root:
+### Training (single-run)
+
+To train PPO agents (both capacity configurations), run the training script directly from the project root:
+
 ```bash
 python3 -u ppo/ppo_runner.py
 ```
 
-Or from inside the `ppo/` folder (keeps PPO outputs contained in `ppo/`):
+This will run training for both capacity 20 and 10, create models in `ppo/models/`, and store plots and metrics under `ppo/`.
+
+### Run the full pipeline (Optuna tuning + train + eval)
+
+We included a helper `ppo/run_all.sh` which orchestrates Optuna hyperparameter tuning followed by training and evaluation. It is designed to run from inside `ppo/` and keeps all outputs inside the `ppo/` directory.
+
+By default it will detect the project venv python at `<project-root>/venv/bin/python` and use it. If not present it falls back to `python3`.
+
+Example (full run):
+
 ```bash
-cd ppo
-chmod +x run_all.sh
-./run_all.sh
+# From repo root
+bash ppo/run_all.sh
 ```
 
-What this does:
-- Trains a PPO agent with link capacity = 20
-- Trains a PPO agent with link capacity = 10
-- Saves models to `ppo/models/`
-- Generates training plots in `ppo/plots/`
-- Saves training metrics as JSON in `ppo/models/`
+`run_all.sh` supports configuration through environment variables (so you can tune and test quickly):
 
-Training duration depends on `num_train_episodes` in `ppo/ppo_runner.py`.
+- `CAPACITIES` — capacities to optimize and train (comma-separated, default `20,10`)
+- `TRIALS` — number of optuna trials per capacity (default `50`)
+- `N_JOBS` — optuna `n_jobs` parallelism (default `-1`)
+- `N_TRAIN_EPISODES` — number of episodes per optuna trial (default `200`)
+- `N_FINAL_EPISODES` — number of episodes for final optimized model training (default `1000`)
+- `SKIP_TUNING` — set to `true` to skip optuna tuning and only run training/evaluation
+- `TRAIN_FINAL` — set to `false` to disable automatic training of the final model after optuna
+- `DATA_DIR` — optional path to training data directory (relative to project root or absolute). Example: `--data-dir data/my_train` passed to optuna script.
+
+Examples:
+
+Quick smoke test (very small):
+
+```bash
+TRIALS=1 N_TRAIN_EPISODES=1 N_FINAL_EPISODES=1 N_JOBS=1 bash ppo/run_all.sh
+```
+
+Skip tuning and run standard training & evaluation:
+
+```bash
+SKIP_TUNING=true bash ppo/run_all.sh
+```
+
+Full optuna and final training (careful: slow):
+
+```bash
+TRIALS=50 N_TRAIN_EPISODES=200 N_FINAL_EPISODES=1000 N_JOBS=-1 bash ppo/run_all.sh
+```
+
+### Optuna Hyperparameter Tuning (standalone)
+
+You can run the Optuna tuning script directly from the project root to keep more control and replay studies:
+
+```bash
+python3 -u ppo/ppo_optuna_tuning.py \
+  --capacities 20,10 \
+  --n-trials 50 \
+  --n-training-episodes-per-trial 200 \
+  --n-final-training-episodes 1000 \
+  --n-jobs -1 \
+  --train-final --no-prompt
+```
+
+Key flags:
+- `--capacities` — comma-separated list of capacities to optimize (default `20,10`)
+- `--data-dir` — optional training data directory (relative to project root or absolute). Default: `project_root/data/train`
+- `--n-trials`, `--n-training-episodes-per-trial`, `--n-final-training-episodes`, `--n-jobs` — control the tuning workload
+- `--train-final` — automatically train optimized final models with the best hyperparameters
+- `--no-prompt` — run non-interactively; implies `--train-final` if a prompt would otherwise appear
+
+This script writes:
+- `ppo/optuna_studies/ppo_study_capacity_*.db` (sqlite) for resuming or analyzing studies
+- `ppo/results/best_ppo_hyperparameters_capacity_*.json` (best trial hyperparameters)
+- `ppo/plots/ppo_optuna_history_capacity_*.png` (optimization history)
+- optional final models saved to `ppo/models/ppo_optimized_capacity_*.zip` and a copy saved as `ppo/models/ppo_capacity_*.zip` for compatibility with the evaluation script.
 
 ### Evaluation
 
-To evaluate trained PPO models on the evaluation dataset:
+To evaluate trained PPO models and generate evaluation plots and per-episode metrics, run the evaluation script from inside the `ppo/` folder to ensure it finds `ppo/models/` correctly:
 
 ```bash
-python3 -u ppo/ppo_evaluate.py
+cd ppo
+python3 -u ppo_evaluate.py
 ```
 
 This will:
-- Load trained models from `ppo/models/`
-- Evaluate on all files in `data/eval/` (resolved relative to project root)
-- Generate evaluation plots in `ppo/plots/`
-- Save results to `ppo/results/`
+- Load `ppo/models/ppo_capacity_{capacity}.zip` for capacities 20 and 10
+- Evaluate on `data/eval/` (resolved relative to project root)
+- Save evaluation JSON files under `ppo/results/` and plots to `ppo/plots/`
+
+If you prefer to evaluate from the repo root directly, you can `cd ppo` first, or copy your `ppo/models` to the project root `models/` folder if needed.
 
 ---
 
@@ -392,3 +458,31 @@ chmod +x run_all.sh
 - **Action masking**: `RSAEnv` uses a fixed `Discrete(8)` action space and
   marks invalid actions by failing allocation. For more efficient learning
   you could implement action masking in a custom policy (advanced).
+
+## Troubleshooting & Common Issues
+
+- Missing dependencies: Use the venv instructions above and run:
+  ```bash
+  source venv/bin/activate
+  pip install -r requirements.txt
+  ```
+
+- Running `ppo_evaluate.py` from the repository root won't find `ppo/models`
+  unless you copy the models to the root `models/` folder. We recommend:
+  ```bash
+  cd ppo
+  python3 -u ppo_evaluate.py
+  ```
+
+- If the optuna tuning does not start or fails due to module import errors,
+  ensure `optuna` is installed in your environment and that you're running
+  the script using the project's virtual environment (if you created it).
+
+- If training fails due to `FileNotFoundError` for training/eval CSVs, verify
+  the dataset paths are present under `data/train` and `data/eval` as expected.
+  For custom datasets, pass `--data-dir` to `ppo_optuna_tuning.py` or set
+  `DATA_DIR` env var for `run_all.sh`.
+
+- Running a full Optuna tuning is resource and time-intensive — use
+  smaller `n_trials` and fewer episodes for quick smoke tests, or run
+  `n_jobs=1` for single-threaded testing.

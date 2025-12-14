@@ -1,9 +1,9 @@
 """
 PPO Training Script for RSA Environment
 
-This mirrors the DQN training pipeline but uses Stable-Baselines3 PPO.
-It trains separate agents for capacity=20 and capacity=10 and saves
-models, metrics, and training plots.
+Follows DQN training setup but uses PPO
+Separate agents are trained for capacity=20 and capacity=10
+Models, metrics, and plots saved for eval run
 """
 import os
 import glob
@@ -16,63 +16,53 @@ from ppo_env import create_env
 
 
 class TrainingMetricsCallback(BaseCallback):
-    """Callback to collect episode-level statistics during PPO training.
-
-    This callback mirrors the one used for DQN training. It accumulates the
-    per-step rewards and captures episode-level blocking rate information
-    from the environment "info" dict when an episode ends.
-    """
+    # Collect metrics for each episode during PPO training
+    # Track cumulative rewards, blocking rates, and episode lengths
 
     def __init__(self, verbose=0):
-        # Initialize parent callback with verbosity setting
         super().__init__(verbose)
-        # Store lists of episode-level metrics
-        self.episode_rewards = [] # cumulative reward per episode
-        self.episode_blocking_rates = [] # blocking rate (blocked/total) per episode
-        self.episode_lengths = [] # length (#requests) per episode
+        # Lists to hold metrics for all episodes
+        self.episode_rewards = [] # Total reward per episode
+        self.episode_blocking_rates = [] # Blocking rate (blocked/total)
+        self.episode_lengths = [] # Number of steps per episode
 
-        # Running accumulators for the current episode
+        # Running totals for the current episode
         self.current_episode_reward = 0
         self.current_episode_length = 0
 
     def _on_step(self) -> bool:
-        """Called by SB3 after every environment step.
+        # Called after each env step during training
+        # Accumulates rewards and tracks episode completions
 
-        The self.locals dict contains training internals such as rewards,
-        dones, and infos. For vectorized envs these are arrays. Here we
-        use index 0 because we operate with a single Monitor-wrapped env.
-        """
-        # Accumulate reward for the current episode
+        # Add reward from this step to the running total
         self.current_episode_reward += float(self.locals['rewards'][0])
-        # Increment step count for current episode
-        self.current_episode_length += 1
+        self.current_episode_length += 1 # Count this step
 
-        # Check if the episode finished on this step
+        # Check if the episode ended on this step
         if self.locals['dones'][0]:
-            # Extract environment-provided info (contains blocking_rate)
+            # Extract extra info from the environment (blocking_rate)
             info = self.locals['infos'][0]
             blocking_rate = info.get('blocking_rate', 0.0)
 
-            # Append the episode summary metrics
+            # Store metrics for the finished episode
             self.episode_rewards.append(self.current_episode_reward)
             self.episode_blocking_rates.append(blocking_rate)
             self.episode_lengths.append(self.current_episode_length)
 
-            # Reset running accumulators for the next episode
+            # Reset counters for the next episode
             self.current_episode_reward = 0
             self.current_episode_length = 0
 
-            # Occasionally print a progress summary when verbose
+            # Occasionally print a short summary for every 10 episodes
             if self.verbose > 0 and len(self.episode_rewards) % 10 == 0:
                 avg_r = np.mean(self.episode_rewards[-10:])
                 avg_b = np.mean(self.episode_blocking_rates[-10:])
                 print(f"Episode {len(self.episode_rewards)}: Avg Reward (last 10)={avg_r:.2f}, Avg Blocking={avg_b:.3f}")
 
-        # Returning True tells SB3 to continue training
-        return True
+        return True  # Continue training
 
     def get_metrics(self):
-        """Return the collected training metrics as a dictionary."""
+        # Return all collected metrics as dictionary
         return {
             'episode_rewards': self.episode_rewards,
             'episode_blocking_rates': self.episode_blocking_rates,
@@ -81,59 +71,53 @@ class TrainingMetricsCallback(BaseCallback):
 
 
 def load_training_requests(data_dir=None, max_files=None):
-    """Load training request files.
+    # Load CSV files with training requests
+    # Resolve relative paths relative to project root
+    # Supports limiting  # of files for quicker experiments
 
-    If called from inside ppo/, the default training directory is assumed
-    to be the project-root data/train/ directory. This helper resolves the
-    correct path so the script works both when run from the project root or
-    when run from inside ppo/.
-    """
-    # Resolve project root (parent of this file's directory)
+    # Determine project root relative to this file
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    if data_dir is None:
-        data_dir = os.path.join(project_root, 'data', 'train')
+    if data_dir is None: data_dir = os.path.join(project_root, 'data', 'train')
 
-    # If provided data_dir is relative, resolve it against project root
+    # If data_dir is relative, resolve to absolute path
     if not os.path.isabs(data_dir):
         candidate = os.path.join(project_root, data_dir)
-        if os.path.exists(candidate):
-            data_dir = candidate
+        if os.path.exists(candidate): data_dir = candidate
 
+    # Find all CSV files matching the naming pattern
     files = sorted(glob.glob(os.path.join(data_dir, 'requests-*.csv')))
-    if not files:
-        raise FileNotFoundError(f"No training files found in '{data_dir}'. Ensure dataset exists under data/train/")
+    if not files: raise FileNotFoundError(f"No training files found in '{data_dir}'. Check that data/train/ exists.")
 
-    if max_files:
-        files = files[:max_files]
+    # Optionally limit number of files
+    if max_files: files = files[:max_files]
     return files
 
 
 def train_ppo(capacity, num_episodes=1000, save_name='models/ppo_model', verbose=1):
-    """Train a PPO agent on the RSA environment.
+    """Train PPO agent for a given capacity
 
     Args:
-        capacity: Number of wavelengths per link (10 or 20).
-        num_episodes: Number of episodes to train (each episode = one CSV file).
-        save_name: Path (under ppo/ when running from ppo/) to save the model.
-        verbose: Verbosity level forwarded to Stable-Baselines3.
+        capacity: Number of wavelengths per link (e.g., 10 or 20)
+        num_episodes: How many episodes to train (roughly one file per episode)
+        save_name: Where to save the trained model
+        verbose: Verbosity level for logging
 
     Returns:
-        Tuple (trained_model, metrics_dict)
+        model: Trained PPO agent
+        metrics: Dictionary of episode metrics
     """
+    print(f"\n=== Training PPO: Capacity={capacity} ===\n")
 
-    # Print header for clarity
-    print(f"\nTraining PPO with capacity={capacity}\n")
-
-    # Load list of training files (resolves project root when needed)
+    # Load CSV files with network requests
     request_files = load_training_requests(max_files=num_episodes)
-    print(f"Loaded {len(request_files)} training files")
+    print(f"Loaded {len(request_files)} request files")
 
-    # Create the environment wrapper that cycles through CSV files
+    # Create environment that cycles through request files
     env = create_env(capacity, request_files)
 
-    # Configure PPO hyperparameters (these are reasonable defaults)
+    # Set up PPO agent with reasonable hyperparameters
     model = PPO(
-        "MlpPolicy",  # Fully-connected policy network
+        "MlpPolicy",  # Fully connected network
         env,
         learning_rate=3e-4,
         n_steps=2048,
@@ -144,21 +128,21 @@ def train_ppo(capacity, num_episodes=1000, save_name='models/ppo_model', verbose
         tensorboard_log=f"tensorboard_logs/ppo_capacity_{capacity}/"
     )
 
-    # Callback collects episode rewards and blocking rates
+    # Callback to collect episode metrics
     callback = TrainingMetricsCallback(verbose=verbose)
 
-    # Estimate total timesteps: ~100 timesteps per episode (approx)
+    # Estimate total timesteps (roughly 100 per episode)
     total_timesteps = num_episodes * 100
 
-    # Start learning (this will take time for large num_episodes)
+    # Start training
     model.learn(total_timesteps=total_timesteps, callback=callback)
 
-    # Ensure save directory exists and persist the model
+    # Save model
     os.makedirs(os.path.dirname(save_name), exist_ok=True)
     model.save(save_name)
-    print(f"Saved model to {save_name}.zip")
+    print(f"Model saved to {save_name}.zip")
 
-    # Retrieve and persist collected metrics
+    # Save training metrics
     metrics = callback.get_metrics()
     metrics_file = f"{save_name}_metrics.json"
     with open(metrics_file, 'w') as f:
@@ -173,23 +157,32 @@ def train_ppo(capacity, num_episodes=1000, save_name='models/ppo_model', verbose
 
 
 def plot_training_results(metrics, capacity, save_path=None):
+    # Plot cumulative rewards and blocking rate over episodes
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     episodes = range(1, len(metrics['episode_rewards']) + 1)
 
+    # Plot cumulative reward per episode
     ax1.plot(episodes, metrics['episode_rewards'], alpha=0.3, label='Episode Reward')
-    window = 10
+    window = 10  # Moving average window
     if len(metrics['episode_rewards']) >= window:
-        mv = np.convolve(metrics['episode_rewards'], np.ones(window)/window, mode='valid')
-        ax1.plot(range(window, len(episodes)+1), mv, label=f'MA (w={window})', linewidth=2)
-    ax1.set_xlabel('Episode'); ax1.set_ylabel('Cumulative Reward'); ax1.set_title(f'PPO Learning - Capacity {capacity}')
-    ax1.legend(); ax1.grid(True, alpha=0.3)
+        ma = np.convolve(metrics['episode_rewards'], np.ones(window)/window, mode='valid')
+        ax1.plot(range(window, len(episodes)+1), ma, label=f'MA (w={window})', linewidth=2)
+    ax1.set_xlabel('Episode')
+    ax1.set_ylabel('Cumulative Reward')
+    ax1.set_title(f'PPO Learning - Capacity {capacity}')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
 
+    # Plot blocking rate
     ax2.plot(episodes, metrics['episode_blocking_rates'], alpha=0.3, label='Blocking Rate')
     if len(metrics['episode_blocking_rates']) >= window:
-        mvb = np.convolve(metrics['episode_blocking_rates'], np.ones(window)/window, mode='valid')
-        ax2.plot(range(window, len(episodes)+1), mvb, label=f'MA (w={window})', linewidth=2)
-    ax2.set_xlabel('Episode'); ax2.set_ylabel('Blocking Rate'); ax2.set_title(f'Blocking over Training - Capacity {capacity}')
-    ax2.legend(); ax2.grid(True, alpha=0.3)
+        ma_b = np.convolve(metrics['episode_blocking_rates'], np.ones(window)/window, mode='valid')
+        ax2.plot(range(window, len(episodes)+1), ma_b, label=f'MA (w={window})', linewidth=2)
+    ax2.set_xlabel('Episode')
+    ax2.set_ylabel('Blocking Rate')
+    ax2.set_title(f'Blocking over Training - Capacity {capacity}')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
 
     plt.tight_layout()
     if save_path:
@@ -199,23 +192,32 @@ def plot_training_results(metrics, capacity, save_path=None):
 
 
 def main():
+    # Ensure all dirs exist
     os.makedirs('models', exist_ok=True)
     os.makedirs('plots', exist_ok=True)
     os.makedirs('results', exist_ok=True)
     os.makedirs('tensorboard_logs', exist_ok=True)
 
-    num_train_episodes = 1000
+    num_train_episodes = 1000  # Default number of episodes
 
-    # Capacity 20
-    model_20, metrics_20 = train_ppo(capacity=20, num_episodes=num_train_episodes, save_name='models/ppo_capacity_20', verbose=1)
+    # Train PPO with capacity 20
+    model_20, metrics_20 = train_ppo(
+        capacity=20,
+        num_episodes=num_train_episodes,
+        save_name='models/ppo_capacity_20',
+        verbose=1
+    )
     plot_training_results(metrics_20, capacity=20, save_path='plots/ppo_training_capacity_20.png')
 
-    # Capacity 10
-    model_10, metrics_10 = train_ppo(capacity=10, num_episodes=num_train_episodes, save_name='models/ppo_capacity_10', verbose=1)
+    # Train PPO with capacity 10
+    model_10, metrics_10 = train_ppo(
+        capacity=10,
+        num_episodes=num_train_episodes,
+        save_name='models/ppo_capacity_10',
+        verbose=1
+    )
     plot_training_results(metrics_10, capacity=10, save_path='plots/ppo_training_capacity_10.png')
-
     print("PPO training complete. Models and plots saved.")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__':  main()
