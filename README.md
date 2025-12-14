@@ -23,6 +23,12 @@ Install required dependencies:
 pip install gymnasium networkx numpy pandas matplotlib stable-baselines3 torch rich tqdm tensorboard optuna
 ```
 
+or
+
+```bash
+pip install -r requirements.txt
+```
+
 ### Training
 
 To train DQN agents for both capacity configurations:
