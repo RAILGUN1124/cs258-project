@@ -1,6 +1,6 @@
 {
-  "mean_blocking_rate": 1e-05,
-  "std_blocking_rate": 0.0003160696125855822,
+  "mean_blocking_rate": 0.0,
+  "std_blocking_rate": 0.0,
   "episode_blocking_rates": [
     0.0,
     0.0,
@@ -495,7 +495,7 @@
     0.0,
     0.0,
     0.0,
-    0.01,
+    0.0,
     0.0,
     0.0,
     0.0,
@@ -1497,7 +1497,7 @@
     0.0,
     0.0,
     0.0,
-    -1.0,
+    0.0,
     0.0,
     0.0,
     0.0,

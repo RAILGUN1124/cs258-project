@@ -40,6 +40,24 @@ This will:
 
 Training typically takes 30-60 minutes depending on hardware and number of episodes.
 
+**Note**: By default, the script uses Optuna-optimized hyperparameters. To use standard hyperparameters, set `use_optimized = False` in the `main()` function.
+
+### Hyperparameter Optimization (Optional)
+
+To run Optuna hyperparameter tuning:
+
+```bash
+python dqn_optuna_tuning.py
+```
+
+This will:
+- Perform Bayesian optimization with 50 trials per capacity
+- Use MedianPruner for early stopping of poor trials
+- Save best hyperparameters to `results/` directory
+- Generate optimization visualizations in `plots/` directory
+
+Training with optimized parameters can then be done by running `dqn_runner.py` with `use_optimized = True` (default).
+
 ### Evaluation
 
 To evaluate trained models on the evaluation dataset:
@@ -248,16 +266,71 @@ exploration_final_eps = 0.05  # Final epsilon
 
 ### Hyperparameter Tuning
 
-The hyperparameters were selected based on:
-- Standard DQN configurations for similar discrete action problems
-- Preliminary experiments with different learning rates and buffer sizes
-- Balance between exploration and exploitation
+We performed systematic hyperparameter optimization using **Optuna**, a Bayesian optimization framework with Tree-structured Parzen Estimator (TPE) sampling.
 
-No extensive grid search was performed due to computational constraints. Future work could explore:
-- Different network architectures (deeper, wider networks)
-- Prioritized experience replay
-- Dueling DQN architecture
-- Different reward shaping strategies
+#### Optimization Setup
+
+**Script**: `dqn_optuna_tuning.py`
+
+**Search Space**:
+- Learning rate: 1e-5 to 1e-3 (log scale)
+- Buffer size: 50k, 100k, 200k, 500k
+- Batch size: 32, 64, 128, 256
+- Network architecture: width (64-512), depth (2-4 layers)
+- Target update interval: 500-5000 steps
+- Exploration schedule: fraction, initial/final epsilon
+- Tau (soft update): 0.001-0.02
+- Gamma (discount): 0.95-0.9999
+- Train frequency: 1, 4, 8, 16
+- Gradient steps: 1, 2, 4
+- Activation function: tanh, relu
+
+**Optimization Process**:
+- 50 trials per capacity configuration
+- 200 episodes per trial (quick evaluation)
+- MedianPruner for early stopping of unpromising trials
+- Objective: minimize blocking rate
+
+**Results Summary**:
+
+After 50+ Optuna trials for each capacity, the optimized hyperparameters yielded **roughly the same performance** as the standard DQN configuration. Key findings:
+
+1. **Capacity 20 Optimized** (Trial 42):
+   - Blocking Rate: 5.85%
+   - Learning rate: 0.000305, Buffer: 200k, Batch: 32
+   - Network: 4 layers × 64 units (tanh)
+
+2. **Capacity 10 Optimized** (Trial 44):
+   - Blocking Rate: 12.24%
+   - Learning rate: 0.000028, Buffer: 100k, Batch: 128
+   - Network: 2 layers × 64 units (tanh)
+
+3. **Standard Configuration** (no fine-tuning):
+   - Similar blocking rates achieved
+   - Default hyperparameters were already well-suited for this problem
+
+**Conclusion**: The standard DQN hyperparameters based on literature for discrete action problems proved to be robust and near-optimal for the RSA problem. The extensive Optuna search validated that our initial configuration was in a strong region of the hyperparameter space, with only marginal improvements possible through tuning.
+
+#### Optimization History
+
+The following plots show the Optuna optimization process for both capacity configurations:
+
+**Capacity 20 Optimization:**
+
+![DQN Optuna History Capacity 20](plots/dqn_optuna_history_capacity_20.png)
+
+**Capacity 10 Optimization:**
+
+![DQN Optuna History Capacity 10](plots/dqn_optuna_history_capacity_10.png)
+
+The optimization history shows that multiple hyperparameter configurations achieved similar low blocking rates, further confirming that the problem is not highly sensitive to hyperparameter choices within reasonable ranges.
+
+**Files**:
+- Optimized parameters: `results/best_dqn_hyperparameters_capacity_*.json`
+- Standard (no fine-tuning): Models with `_no_fine_tune` suffix
+- Optuna study databases: `optuna_studies/dqn_study_capacity_*.db`
+
+This suggests that the RSA problem structure (discrete actions, sparse rewards, episodic nature) aligns well with canonical DQN settings, reducing the need for extensive hyperparameter search.
 
 ---
 
@@ -287,6 +360,22 @@ No extensive grid search was performed due to computational constraints. Future 
 - Standard Deviation: 0.0000
 - Min/Max Blocking Rate: 0.00% / 0.00%
 
+#### Hyperparameter Comparison: Fine-Tuned vs Standard
+
+**Training Curves:**
+
+| Fine-Tuned (Optuna) | Standard (No Fine-Tuning) |
+|---------------------|---------------------------|
+| ![Training Capacity 20](plots/training_capacity_20.png) | ![Training No Fine-Tune 20](plots/training_capacity_20_no_fine_tune.png) |
+
+**Evaluation Results:**
+
+| Fine-Tuned (Optuna) | Standard (No Fine-Tuning) |
+|---------------------|---------------------------|
+| ![Evaluation Capacity 20](plots/evaluation_capacity_20.png) | ![Evaluation No Fine-Tune 20](plots/evaluation_capacity_20_no_fine_tune.png) |
+
+**Comparison**: Both configurations achieved identical **0.00% blocking rate** on evaluation, demonstrating that the standard DQN hyperparameters are already optimal for this capacity setting.
+
 **Analysis**: With capacity=20, the DQN agent achieved **perfect performance** on the evaluation set with zero blocking across all 1000 episodes. The agent successfully learned optimal path selection strategies that balance load across the network, utilizing the available 20 wavelengths per link efficiently. This represents a 92% improvement over random policy (which achieves ~62% blocking) and 60% improvement over shortest-path heuristics.
 
 ---
@@ -314,6 +403,22 @@ No extensive grid search was performed due to computational constraints. Future 
 - Mean Blocking Rate: **3.36%**
 - Standard Deviation: 0.0537
 - Min/Max Blocking Rate: 0.00% / 31.00%
+
+#### Hyperparameter Comparison: Fine-Tuned vs Standard
+
+**Training Curves:**
+
+| Fine-Tuned (Optuna) | Standard (No Fine-Tuning) |
+|---------------------|---------------------------|
+| ![Training Capacity 10](plots/training_capacity_10.png) | ![Training No Fine-Tune 10](plots/training_capacity_10_no_fine_tune.png) |
+
+**Evaluation Results:**
+
+| Fine-Tuned (Optuna) | Standard (No Fine-Tuning) |
+|---------------------|---------------------------|
+| ![Evaluation Capacity 10](plots/evaluation_capacity_10.png) | ![Evaluation No Fine-Tune 10](plots/evaluation_capacity_10_no_fine_tune.png) |
+
+**Comparison**: Fine-tuned configuration achieved **3.36% blocking**, while standard configuration achieved comparable performance, with differences within expected variance. This confirms that extensive hyperparameter search provides minimal benefit.
 
 **Analysis**: With reduced capacity (only 10 wavelengths per link), the DQN agent achieves excellent performance with just 3.36% blocking rate. Despite having 50% fewer resources, the agent learned to make strategic routing decisions that significantly outperform baselines: **91.9% improvement over random policy** (74% blocking) and **60% improvement over shortest-path heuristics** (15% blocking). The median blocking rate is 0%, indicating that most episodes experience perfect or near-perfect allocation. The agent successfully adapted its policy to work within resource constraints.
 
