@@ -51,7 +51,7 @@ python dqn_optuna_tuning.py
 ```
 
 This will:
-- Perform Bayesian optimization with 50 trials per capacity
+- Perform Bayesian optimization with 100 trials per capacity
 - Use MedianPruner for early stopping of poor trials
 - Save best hyperparameters to `results/` directory
 - Generate optimization visualizations in `plots/` directory
@@ -254,41 +254,41 @@ exploration_final_eps = 0.05  # Final epsilon
 ### Fine tuned-hyperparameters for link 20
 
 ```python
-learning_rate = 0.0003050684649668781,
-buffer_size = 200000,
-learning_starts = 930,
-batch_size = 32,
-tau = 0.006042117664422209,
-gamma = 0.9789740355899498,
-train_freq = 4,
-gradient_steps = 4,
-target_update_interval = 4498,
-exploration_fraction = 0.11460338059193781,
-exploration_initial_eps = 0.9364400728956787,
-exploration_final_eps = 0.011845254714880403,
-net_arch_size = 64,
-net_arch_depth = 4,
-activation_fn = tanh
+"learning_rate": 0.0006978152165306771,
+"buffer_size": 200000,
+"learning_starts": 727,
+"batch_size": 32,
+"tau": 0.0031177204076634647,
+"gamma": 0.9738697318521434,
+"train_freq": 4,
+"gradient_steps": 4,
+"target_update_interval": 4807,
+"exploration_fraction": 0.11199631981872485,
+"exploration_initial_eps": 0.9510470023306554,
+"exploration_final_eps": 0.010246952257968041,
+"net_arch_size": 256,
+"net_arch_depth": 4,
+"activation_fn": "tanh"
 ```
 
 ### Fine tuned-hyperparameters for link 10
 
 ```python
-learning_rate = 2.78653872562099e-05,
-buffer_size = 100000,
-learning_starts = 921,
-batch_size = 128,
-tau = 0.01678445113571085,
-gamma = 0.9996007314306421,
-train_freq = 1,
-gradient_steps = 2,
-target_update_interval = 3645,
-exploration_fraction = 0.20913688873938494,
-exploration_initial_eps = 0.9538258907476982,
-exploration_final_eps = 0.010454736008238236,
-net_arch_size = 64,
-net_arch_depth = 2,
-activation_fn = tanh
+"learning_rate": 0.00027960716845474735,
+"buffer_size": 100000,
+"learning_starts": 692,
+"batch_size": 128,
+"tau": 0.017350912411417393,
+"gamma": 0.9622276108490772,
+"train_freq": 4,
+"gradient_steps": 1,
+"target_update_interval": 3877,
+"exploration_fraction": 0.1010251298462479,
+"exploration_initial_eps": 0.9469184699809786,
+"exploration_final_eps": 0.0159164577309629,
+"net_arch_size": 128,
+"net_arch_depth": 2,
+"activation_fn": "tanh"
 ```
 
 ### Network Architecture
@@ -297,7 +297,7 @@ activation_fn = tanh
   - Input: 35-dimensional state vector
   - Hidden layers: Configured by Stable-Baselines3 (default: [64, 64])
   - Output: 8 Q-values (one per action)
-  - Activation: ReLU
+  - Activation: ReLU, Tanh
 
 ### Training Process
 
@@ -329,24 +329,24 @@ We performed systematic hyperparameter optimization using **Optuna**, a Bayesian
 - Activation function: tanh, relu
 
 **Optimization Process**:
-- 50 trials per capacity configuration
+- 100 trials per capacity configuration
 - 200 episodes per trial (quick evaluation)
 - MedianPruner for early stopping of unpromising trials
 - Objective: minimize blocking rate
 
 **Results Summary**:
 
-After 50+ Optuna trials for each capacity, the optimized hyperparameters yielded **roughly the same performance** as the standard DQN configuration. Key findings:
+After 100 Optuna trials for each capacity, the optimized hyperparameters yielded **roughly the same performance** as the standard DQN configuration. Key findings:
 
-1. **Capacity 20 Optimized** (Trial 42):
-   - Blocking Rate: 5.85%
-   - Learning rate: 0.000305, Buffer: 200k, Batch: 32
-   - Network: 4 layers × 64 units (tanh)
+1. **Capacity 20 Optimized** (Trial 93):
+   - Blocking Rate: 5.39%
+   - Learning rate: 0.0006978152165306771, Buffer: 200k, Batch: 32
+   - Network: 4 layers × 256 units (tanh)
 
-2. **Capacity 10 Optimized** (Trial 44):
-   - Blocking Rate: 12.24%
-   - Learning rate: 0.000028, Buffer: 100k, Batch: 128
-   - Network: 2 layers × 64 units (tanh)
+2. **Capacity 10 Optimized** (Trial 75):
+   - Blocking Rate: 8.8%
+   - Learning rate: 0.00027960716845474735, Buffer: 100k, Batch: 128
+   - Network: 2 layers × 128 units (tanh)
 
 3. **Standard Configuration** (no fine-tuning):
    - Similar blocking rates achieved
@@ -381,9 +381,9 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 
 ### Part 1: Link Capacity = 20
 
-#### Training Results (No Fine-tune)
+#### Training Results (Fine-tuned)
 
-![Training Capacity 20](plots/training_capacity_20_no_fine_tune.png)
+![Training Capacity 20](plots/training_capacity_20.png)
 
 - **Learning Curve**: The episode rewards show steady improvement over training episodes, starting from -77 and improving to near-zero blocking by the end
 - **Blocking Rate**: Decreases from initial random policy (~70-80% blocking) to optimized policy (3.69% on training set)
@@ -393,9 +393,9 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 - Mean Episode Reward: -3.69
 - Mean Blocking Rate: 3.69%
 
-#### Evaluation Results (No Fine-tune)
+#### Evaluation Results (Fine-tuned)
 
-![Evaluation Capacity 20](plots/evaluation_capacity_20_no_fine_tune.png)
+![Evaluation Capacity 20](plots/evaluation_capacity_20.png)
 
 **Performance on Evaluation Set**:
 - Episodes Evaluated: 1000 (all files in data/eval/)
@@ -425,9 +425,9 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 
 ### Part 2: Link Capacity = 10
 
-#### Training Results (No Fine-tune)
+#### Training Results (Fine-tuned)
 
-![Training Capacity 10](plots/training_capacity_10_no_fine_tune.png)
+![Training Capacity 10](plots/training_capacity_10.png)
 
 - **Learning Curve**: Shows more variability due to resource constraints, with rewards improving from -80 to -5.78 on average
 - **Blocking Rate**: Higher than capacity=20 due to limited resources (50% fewer wavelengths)
@@ -437,14 +437,14 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 - Mean Episode Reward: -5.78
 - Mean Blocking Rate: 5.78%
 
-#### Evaluation Results (No Fine-tune)
+#### Evaluation Results (Fine-tuned)
 
-![Evaluation Capacity 10](plots/evaluation_capacity_10_no_fine_tune.png)
+![Evaluation Capacity 10](plots/evaluation_capacity_10.png)
 
 **Performance on Evaluation Set**:
 - Episodes Evaluated: 1000
-- Mean Blocking Rate: **3.36%**
-- Standard Deviation: 0.0537
+- Mean Blocking Rate: **3.18%**
+- Standard Deviation: 0.0529
 - Min/Max Blocking Rate: 0.00% / 31.00%
 
 #### Hyperparameter Comparison: Fine-Tuned vs Standard
@@ -461,7 +461,7 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 |---------------------|---------------------------|
 | ![Evaluation Capacity 10](plots/evaluation_capacity_10.png) | ![Evaluation No Fine-Tune 10](plots/evaluation_capacity_10_no_fine_tune.png) |
 
-**Comparison**: Fine-tuned configuration achieved **3.38% blocking**, while standard configuration achieved comparable performance, with differences within expected variance. This confirms that extensive hyperparameter search provides minimal benefit.
+**Comparison**: Fine-tuned configuration achieved **3.18% blocking**, while standard configuration achieved comparable performance, with differences within expected variance. This confirms that extensive hyperparameter search provides minimal benefit.
 
 **Analysis**: With reduced capacity (only 10 wavelengths per link), the DQN agent achieves excellent performance with just 3.36% blocking rate. Despite having 50% fewer resources, the agent learned to make strategic routing decisions that significantly outperform baselines: **91.9% improvement over random policy** (74% blocking) and **60% improvement over shortest-path heuristics** (15% blocking). The median blocking rate is 0%, indicating that most episodes experience perfect or near-perfect allocation. The agent successfully adapted its policy to work within resource constraints.
 
@@ -474,22 +474,22 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 | Metric | Cap 20 (Fine-Tuned) | Cap 20 (Standard) | Cap 10 (Fine-Tuned) | Cap 10 (Standard) |
 |--------|---------------------|-------------------|---------------------|-------------------|
 | Training Episodes | 1000 | 1000 | 1000 | 1000 |
-| Optuna Trials | 50 | N/A | 50 | N/A |
+| Optuna Trials | 100 | N/A | 100 | N/A |
 | Network Architecture | 4×64 (tanh) | 2×64 (relu) | 2×64 (tanh) | 2×64 (relu) |
 | Learning Rate | 0.000305 | 0.0001 | 0.000028 | 0.0001 |
 | Batch Size | 32 | 64 | 128 | 64 |
 | Final Training Blocking | 3.69% | 3.69% | 5.78% | 5.78% |
-| **Eval Mean Blocking** | **0.00001%** | **0.00%** | **3.38%** | **3.36%** |
-| Eval Std Blocking | 0.000316 | 0.0000 | 0.0537 | 0.0537 |
-| Eval Max Blocking | 1% | 0.00% | 32.00% | 31.00% |
+| **Eval Mean Blocking** | **0.000%** | **0.00%** | **3.38%** | **3.36%** |
+| Eval Std Blocking | 0.0000 | 0.0000 | 0.0537 | 0.0537 |
+| Eval Max Blocking | 0% | 0.00% | 32.00% | 31.00% |
 | Improvement vs Random | 92% | 92% | 91.9% | 91.9% |
 | Improvement vs Shortest Path | 60% | 60% | 60% | 60% |
 
 **Key Observations**:
-1. **Exceptional Performance**: DQN with standard configs achieved 0% blocking for capacity=20 and only 3.36% for capacity=10, demonstrating highly effective learning
+1. **Exceptional Performance**: DQN achieved 0% blocking for capacity=20 and only 3.18% for capacity=10, demonstrating highly effective learning
 2. **Hyperparameter Robustness**: Fine-tuned (Optuna) and standard configurations achieved nearly identical performance, with differences within statistical variance (0.02% for capacity=10)
-3. **Optuna Validation**: 50 trials per capacity confirmed that standard DQN hyperparameters were already in an optimal region for this problem
-4. **Resource Adaptation**: Despite 50% fewer wavelengths, capacity=10 maintains excellent performance (96.6% success rate)
+3. **Optuna Validation**: 100 trials per capacity confirmed that standard DQN hyperparameters were already in an optimal region for this problem
+4. **Resource Adaptation**: Despite 50% fewer wavelengths, capacity=10 maintains excellent performance (96.82% success rate)
 5. **Generalization**: Evaluation performance exceeded training performance, showing strong generalization to unseen request patterns
 6. **Baseline Comparison**: DQN dramatically outperforms both random policy (~70% blocking) and shortest-path heuristics (~15% blocking)
 7. **Robustness**: Low standard deviation and median blocking rate of 0% for capacity=10 indicates consistent, reliable performance
@@ -505,7 +505,7 @@ The results validate that DQN successfully learns sophisticated routing strategi
 - `rsaenv.py`: Custom Gym environment for RSA
 - `dqn_runner.py`: DQN training script with Optuna-optimized hyperparameters
 - `evaluate.py`: Evaluation script for trained DQN models
-- `dqn_optuna_tuning.py`: Hyperparameter optimization with Optuna (50 trials per capacity)
+- `dqn_optuna_tuning.py`: Hyperparameter optimization with Optuna (100 trials per capacity)
 - `test_env.py`: Environment testing utilities
 - `visualize_network.py`: Network topology visualization
 
@@ -559,7 +559,6 @@ The results validate that DQN successfully learns sophisticated routing strategi
 1. Deep Q-Network (DQN): Mnih et al., "Human-level control through deep reinforcement learning," Nature, 2015.
 2. Stable-Baselines3: https://stable-baselines3.readthedocs.io/
 3. Gymnasium: https://gymnasium.farama.org/
-
 4. AI tools: Claude Sonnet 4.5
 ---
 
