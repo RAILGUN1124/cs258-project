@@ -1,5 +1,4 @@
-# PPO (Proximal Policy Optimization) for RSA --- Reproducible Report
-
+# Routing and Spectrum Allocation (RSA) using PPO (Proximal Policy Optimization)
 This folder implements a PPO-based training and evaluation pipeline for the Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
 
 ------------------------------------------------------------------------
