@@ -1,23 +1,23 @@
 {
-  "best_trial_number": 1,
-  "best_blocking_rate": 0.74,
+  "best_trial_number": 42,
+  "best_blocking_rate": 0.1233,
   "best_params": {
-    "learning_rate": 4.192159350410976e-05,
-    "gamma": 0.9723474292266348,
-    "gae_lambda": 0.9491834326646725,
-    "clip_range": 0.13993475643167194,
-    "ent_coef": 0.001524996572521357,
-    "vf_coef": 0.7146901982034297,
-    "n_steps": 256,
-    "batch_size": 64,
-    "n_epochs": 3,
-    "max_grad_norm": 0.7789631185585097,
+    "learning_rate": 0.00017207979031757875,
+    "gamma": 0.9531705590382864,
+    "gae_lambda": 0.8482527581786932,
+    "clip_range": 0.10262701153526324,
+    "ent_coef": 0.00016966276738326815,
+    "vf_coef": 0.4545506085530149,
+    "n_steps": 128,
+    "batch_size": 32,
+    "n_epochs": 7,
+    "max_grad_norm": 0.43145602761524743,
     "net_arch_size": 256,
-    "net_arch_depth": 4,
-    "activation_fn": "relu"
+    "net_arch_depth": 3,
+    "activation_fn": "tanh"
   },
   "user_attrs": {
-    "mean_reward": -74.0,
-    "std_blocking_rate": 0.02966479394838268
+    "mean_reward": -12.329999923706055,
+    "std_blocking_rate": 0.1727226389330594
   }
 }

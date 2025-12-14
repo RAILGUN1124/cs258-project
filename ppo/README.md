@@ -1,61 +1,72 @@
-# PPO (Proximal Policy Optimization) for RSA
+# PPO (Proximal Policy Optimization) for RSA --- Reproducible Report
 
-This folder implements a PPO-based training and evaluation pipeline for the
-Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
+This folder implements a PPO-based training and evaluation pipeline for the Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
 
+------------------------------------------------------------------------
 ## Table of Contents
 
-1. [How to Run](#how-to-run)
-2. [Environment](#environment)
-3. [State Representation and State Transitions](#state-representation-and-state-transitions)
-4. [Action Representation](#action-representation)
-5. [Reward Function](#reward-function)
-6. [Results](#results)
-7. [Files Generated](#files-generated)
-8. [Design and Architecture](#design-and-architecture)
+- [How to Execute](#how-to-execute-reproducibility)
+- [Environment](#environment)
+- [State Representation and State Transitions](#state-representation-and-state-transitions)
+- [Action Representation](#action-representation)
+- [Reward Function](#reward-function)
+- [Training Setup](#training-setup)
+- [Systematic Hyperparameter Tuning](#systematic-hyperparameter-tuning)
+- [Results](#results)
+- [File Structure](#file-structure)
+- [References](#references)
 
+## How to Execute (Reproducibility)
 
----
+### 1. Environment Setup
 
-## How to Run
+Create and activate a virtual environment in the project root:
 
-From the project root (recommended):
-
-```zsh
-python3 -u ppo/ppo_runner.py    # trains PPO agents (capacity 20 and 10)
-python3 -u ppo/ppo_evaluate.py  # evaluates saved models on data/eval/
-```
-
-Or run the helper from inside the `ppo/` folder (keeps outputs confined to `ppo/`):
-
-```zsh
-cd ppo
-chmod +x run_all.sh
-./run_all.sh
-```
-
-## How to Execute
-
-### Prerequisites
-
-Install required dependencies (prefer creating a venv in the project root):
-
-```bash
+``` bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run the full pipeline (Optuna tuning + train + eval)
+### 2. Quick Smoke Test (Fast)
 
-We included a helper `ppo/run_all.sh` which orchestrates Optuna hyperparameter tuning followed by training and evaluation. It is designed to run from inside `ppo/` and keeps all outputs inside the `ppo/` directory.
+Runs the full PPO pipeline with minimal workload to verify correctness:
 
-Example (full run):
+``` bash
+python3 -u ppo/ppo_optuna_tuning.py   --capacities 20   --n-trials 1   --n-training-episodes-per-trial 1   --n-final-training-episodes 1   --n-jobs 1   --train-final   --no-prompt
+```
 
-```bash
-# From repo root
+### 3. Full Pipeline (Tuning + Training + Evaluation)
+
+``` bash
 bash ppo/run_all.sh
 ```
+
+`run_all.sh` supports reproducible non-interactive runs using
+environment variables:
+
+-   `CAPACITIES` (default `20,10`)
+-   `TRIALS` (default `50`)
+-   `N_TRAIN_EPISODES` (default `200`)
+-   `N_FINAL_EPISODES` (default `1000`)
+-   `N_JOBS` (default `-1`)
+-   `SKIP_TUNING` (set to `true` to skip Optuna)
+-   `TRAIN_FINAL` (set to `false` to disable final training)
+
+Example:
+
+``` bash
+TRIALS=1 N_TRAIN_EPISODES=1 N_FINAL_EPISODES=1 N_JOBS=1 bash ppo/run_all.sh
+```
+
+### 4. Evaluate a Saved Model
+
+``` bash
+cd ppo
+python3 -u ppo_evaluate.py --capacity 20
+```
+
+Evaluation runs on `data/eval/` and writes results to `ppo/results/`.
 
 ### Training (single-run)
 
@@ -87,107 +98,158 @@ This script writes:
 - `ppo/plots/ppo_optuna_history_capacity_*.png` (optimization history)
 - optional final models saved to `ppo/models/ppo_optimized_capacity_*.zip` and a copy saved as `ppo/models/ppo_capacity_*.zip` for compatibility with the evaluation script.
 
-### Evaluation
-
-To evaluate trained PPO models and generate evaluation plots and per-episode metrics, run the evaluation script from inside the `ppo/` folder to ensure it finds `ppo/models/` correctly:
-
-```bash
-cd ppo
-python3 -u ppo_evaluate.py
-```
-
-This will:
-- Load `ppo/models/ppo_capacity_{capacity}.zip` for capacities 20 and 10
-- Evaluate on `data/eval/` (resolved relative to project root)
-- Save evaluation JSON files under `ppo/results/` and plots to `ppo/plots/`
-
-If you prefer to evaluate from the repo root directly, you can `cd ppo` first, or copy your `ppo/models` to the project root `models/` folder if needed.
-
----
+------------------------------------------------------------------------
 
 ## Environment
 
-The PPO pipeline reuses the same environment as DQN: `rsaenv.py` in the
-project root. The network topology, constraints, requests, and path set
-are identical so PPO and DQN results can be compared fairly.
+-   **Topology**: 9 nodes (0--8) in a ring
+-   **Extra Links**: (1,7), (1,5), (3,6)
+-   **Total Links**: 12 bidirectional links
+-   **Capacities**: C = 20 and C = 10 wavelengths per link
+-   **Episodes**: CSV files (\~100 requests each) from `data/train/` and
+    `data/eval/`
+-   **Core Environment**: `rsaenv.py`
+-   **PPO Wrapper**: `ppo_env.py` (`MultiFileEnv` for SB3)
 
-### Network Topology
+The PPO pipeline reuses the exact environment used for DQN to ensure
+fair comparisons.
 
-- 9 nodes (0–8) in a ring
-- Extra links: (1,7), (1,5), (3,6)
-- Total: 12 bidirectional links
-
-Each link stores a `LinkState` object (see `nwutil.py`) with per-wavelength
-occupancy, active lightpaths, and utilization.
-
----
+------------------------------------------------------------------------
 
 ## State Representation and State Transitions
 
-Observation vector (35-dimensional):
+### Observation Vector (35 dimensions)
 
-1. Link utilizations (12 values): normalized occupied slots per link
-2. Available wavelengths per link (12 values): available_count / capacity
-3. Current request features (3 values): source/8, destination/8, holding_time/100
-4. Path availability (8 values): binary indicator (1.0 if at least one common wavelength exists)
+1.  **Link Utilization** (12): occupied_slots / capacity
+2.  **Available Wavelengths** (12): available_slots / capacity
+3.  **Current Request** (3):
+    -   source / 8
+    -   destination / 8
+    -   holding_time / 100
+4.  **Path Availability** (8): binary indicator for each predefined path
 
-At each time step (one request):
+### State Transition per Time Slot
 
-1. Release expired lightpaths (based on logical time = request index)
-2. Agent selects one of 8 global actions (maps to 2 valid paths per request)
-3. Environment finds the smallest index wavelength available on all links of that path (first-fit)
-4. Allocate wavelength on links or block the request
-5. Reward and info (including blocking_rate) are returned
+At each request (time step):
 
----
+1.  Expire completed lightpaths and free wavelengths
+2.  Agent selects one of 8 actions
+3.  Environment applies First-Fit wavelength allocation on the chosen
+    path
+4.  Allocate or block the request
+5.  Advance to the next request and recompute observations
+
+------------------------------------------------------------------------
+
+## Network State Update per Time Slot
+
+1.  **Expiration Handling**
+    -   Check active lightpaths
+    -   Free wavelength indices on all links of expired paths
+    -   Update utilization counters
+2.  **Allocation**
+    -   First-Fit scans wavelength indices
+    -   Finds a common free index across all links of the path
+    -   Allocates wavelength on success; blocks otherwise
+3.  **Observation Refresh**
+    -   Recompute link utilization, availability, and path feasibility
+
+------------------------------------------------------------------------
+
+## Network State Data Structure (`LinkState`)
+
+Each NetworkX edge holds a `LinkState` object (`nwutil.py`):
+
+-   `wavelengths`: `list[bool]` occupancy per slot
+-   `lightpaths`: `{wavelength_index: (request_id, expiration_time)}`
+-   Methods:
+    -   `allocate()`
+    -   `release()`
+    -   availability queries
+
+This design enables efficient First-Fit allocation and explicit
+expiration management.
+
+------------------------------------------------------------------------
 
 ## Action Representation
+| Action | Source -> Dest | Path |
+|--------|---------------|------|
+| 0 | 0 -> 3 | [0, 1, 2, 3] (P1) |
+| 1 | 0 -> 3 | [0, 8, 7, 6, 3] (P2) |
+| 2 | 0 -> 4 | [0, 1, 5, 4] (P3) |
+| 3 | 0 -> 4 | [0, 8, 7, 6, 3, 4] (P4) |
+| 4 | 7 -> 3 | [7, 1, 2, 3] (P5) |
+| 5 | 7 -> 3 | [7, 6, 3] (P6) |
+| 6 | 7 -> 4 | [7, 1, 5, 4] (P7) |
+| 7 | 7 -> 4 | [7, 6, 3, 4] (P8) |
+-   Action Space: `Discrete(8)` maps to pre-defined paths (P1..P8)
+-   Only 2 actions are valid per source-destination pair
+-   Invalid actions are treated as blocking
+-   This fixed action space simplifies PPO training
 
-The action space is `Discrete(8)` mapping to pre-defined paths (P1..P8):
-
-- Actions 0–1: paths for (0->3)
-- Actions 2–3: paths for (0->4)
-- Actions 4–5: paths for (7->3)
-- Actions 6–7: paths for (7->4)
-
-Invalid actions for the current request are treated as blocking (environment
-returns no allocation). This keeps the action interface fixed for PPO.
-
----
+------------------------------------------------------------------------
 
 ## Reward Function
 
-- Successful allocation: `0`
-- Blocked request: `-1`
+-   **Successful allocation**: `0`
+-   **Blocked request**: `-1`
 
----
+This sparse reward directly optimizes blocking rate
 
-## Evaluation
+------------------------------------------------------------------------
 
-The evaluation script loads saved PPO models and runs them deterministically
-on the files in `data/eval/`. It records per-episode blocking rates
-and generates plots that show the raw blocking rates and a moving average.
+## Additional Constraints
 
-By default it evaluates both capacities (20 and 10) and saves JSON results
-to `ppo/results/` and plots to `ppo/plots/`.
+-   **Wavelength continuity**: same wavelength index on all links of a
+    path
+-   **Capacity constraint**: no link exceeds wavelength capacity
+-   **Conflict constraint**: wavelength slots are exclusive per link
 
----
+------------------------------------------------------------------------
 
-## File Structure (ppo/)
+## Training Setup
 
+-   **Algorithm**: PPO (Stable-Baselines3)
+-   **Policy**: MLP
+-   **Episodes**: 1000 per capacity
+-   **Logging**:
+    -   Per-episode JSON metrics
+    -   PNG plots
+    -   TensorBoard logs
+-   **Models**: saved under `ppo/models/`
+
+### How the Agent Was Trained
+
+-   Separate PPO agents for C=20 and C=10
+-   `MultiFileEnv` streams CSV files as episodes
+-   Training metrics validate convergence and stability
+
+------------------------------------------------------------------------
+
+## Systematic Hyperparameter Tuning
+
+-   **Tool**: Optuna (TPE sampler + MedianPruner)
+-   **Script**: `ppo/ppo_optuna_tuning.py`
+-   **Search Space**:
+    -   learning rate
+    -   gamma
+    -   clip range
+    -   n_steps
+    -   batch size
+    -   network depth/width
+    -   entropy coefficient
+
+Example command:
+
+``` bash
+python3 -u ppo/ppo_optuna_tuning.py   --capacities 20,10   --n-trials 50   --n-training-episodes-per-trial 200   --n-final-training-episodes 1000   --n-jobs -1   --train-final   --no-prompt
 ```
-ppo/
-├── ppo_env.py
-├── ppo_runner.py
-├── ppo_evaluate.py
-├── run_all.sh
-├── models/
-├── plots/
-├── results/
-└── tensorboard_logs/
-```
 
----
+Best hyperparameters are saved to: -
+`ppo/results/best_ppo_hyperparameters_capacity_*.json`
+
+------------------------------------------------------------------------
 
 ## Results
 
@@ -205,7 +267,7 @@ The left subplot displays cumulative episode rewards (higher is better, 0 means
 all requests allocated), while the right subplot shows the blocking rate
 (lower is better). Both metrics should improve as training progresses.
 
-**Training Performance** (last 10 episodes):
+**Training Performance**
 - Mean Episode Reward: varies (check `models/ppo_capacity_20_metrics.json`)
 - Mean Blocking Rate: varies (check metrics JSON for exact values)
 - Training completed successfully with saved model at `models/ppo_capacity_20.zip`
@@ -241,7 +303,7 @@ Training with reduced capacity (50% fewer wavelengths) presents a harder
 optimization problem. The agent must learn more sophisticated path selection
 strategies to balance between link load and wavelength availability.
 
-**Training Performance** (last 10 episodes):
+**Training Performance**
 - Mean Episode Reward: varies (check `models/ppo_capacity_10_metrics.json`)
 - Mean Blocking Rate: varies (check metrics JSON)
 - Training completed with model saved at `models/ppo_capacity_10.zip`
@@ -266,22 +328,34 @@ agent handles resource-constrained scenarios compared to the higher-capacity cas
 
 ---
 
-### Comparison and Insights
 
-| Metric | Capacity = 20 | Capacity = 10 |
-|--------|---------------|---------------|
-| Training Episodes | 1000 | 1000 |
-| Final Training Blocking Rate | See metrics JSON | See metrics JSON |
-| Eval Mean Blocking Rate | See results JSON | See results JSON |
-| Eval Std Blocking Rate | See results JSON | See results JSON |
-| Model File | `ppo_capacity_20.zip` | `ppo_capacity_10.zip` |
-| Training Plot | `ppo_training_capacity_20.png` | `ppo_training_capacity_10.png` |
-| Evaluation Plot | `ppo_evaluation_capacity_20.png` | `ppo_evaluation_capacity_10.png` |
+### Six Key Plots
 
-**How to interpret the metrics**:
-- Check `models/ppo_capacity_*_metrics.json` for training-time episode rewards and blocking rates
-- Check `results/ppo_eval_capacity_*.json` for evaluation metrics (mean, std, min, max blocking rates)
-- Plots visualize the trends: training plots show learning progress, evaluation plots show generalization
+1.  **PPO Training (Capacity = 20)**\
+    ![Training C20](plots/ppo_training_capacity_20.png)
+
+2.  **PPO Evaluation (Capacity = 20)**\
+    ![Evaluation C20](plots/ppo_evaluation_capacity_20.png)
+
+3.  **PPO Training (Capacity = 10)**\
+    ![Training C10](plots/ppo_training_capacity_10.png)
+
+4.  **PPO Evaluation (Capacity = 10)**\
+    ![Evaluation C10](plots/ppo_evaluation_capacity_10.png)
+
+5.  **Optuna History (Capacity = 20)**\
+    ![Optuna C20](plots/ppo_optuna_history_capacity_20.png)
+
+6.  **Optuna History (Capacity = 10)**\
+    ![Optuna C10](plots/ppo_optuna_history_capacity_10.png)
+
+### Interpretation
+
+-   Training plots show convergence of reward and blocking rate
+-   Evaluation plots show generalization on unseen traffic
+-   Optuna plots show trial-wise optimization behavior
+-   Capacity=10 consistently exhibits higher blocking due to resource
+    scarcity
 
 ---
 
@@ -321,28 +395,25 @@ After running `ppo/run_all.sh` or individual scripts:
 - `run_all.sh` - Shell script that runs training followed by evaluation
   from inside the `ppo/` folder; keeps PPO outputs contained under `ppo/`.
 
-## Design and Architecture
+------------------------------------------------------------------------
 
-The PPO pipeline reuses the same environment used by the DQN pipeline
-(`rsaenv.py`) so results are directly comparable. Key design points:
+## File Structure
 
-- Environment: `RSAEnv` (project root) models the optical network.
-- Wrapper: `MultiFileEnv` (in `ppo_env.py`) cycles through CSV files; each
-  file is an episode (~100 requests).
-- Training: `ppo_runner.py` creates the wrapped env, constructs a PPO
-  agent (MLP policy), and trains it using Stable-Baselines3. Training
-  metrics (episode rewards and blocking rates) are collected with a
-  custom callback and written to JSON.
-- Evaluation: `ppo_evaluate.py` loads trained models and runs them
-  deterministically on the evaluation request files, saving per-episode
-  blocking rates and a plot.
+    ppo/
+    ├── ppo_env.py
+    ├── ppo_runner.py
+    ├── ppo_evaluate.py
+    ├── ppo_optuna_tuning.py
+    ├── run_all.sh
+    ├── models/
+    ├── plots/
+    ├── results/
+    └── tensorboard_logs/
 
-## File / Output Layout (when running inside `ppo/`)
+------------------------------------------------------------------------
 
-After running `run_all.sh` (or the scripts directly from `ppo/`), the
-following directories will be created in `ppo/`:
+## References
 
-- `models/` - Saved PPO models (`ppo_capacity_20.zip`, `ppo_capacity_10.zip`) and metrics JSON files.
-- `plots/` - Training and evaluation PNG plots for each capacity.
-- `results/` - Evaluation JSON results (per-episode blocking rates).
-- `tensorboard_logs/` - TensorBoard logs for PPO training.
+1.  Schulman et al., *Proximal Policy Optimization Algorithms*, 2017
+2.  Stable-Baselines3 Documentation
+3.  Gymnasium Documentation
