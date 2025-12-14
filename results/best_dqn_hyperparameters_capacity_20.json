@@ -1,25 +1,25 @@
 {
-  "best_trial_number": 42,
-  "best_blocking_rate": 0.058499999999999996,
+  "best_trial_number": 93,
+  "best_blocking_rate": 0.0539,
   "best_params": {
-    "learning_rate": 0.0003050684649668781,
+    "learning_rate": 0.0006978152165306771,
     "buffer_size": 200000,
-    "learning_starts": 930,
+    "learning_starts": 727,
     "batch_size": 32,
-    "tau": 0.006042117664422209,
-    "gamma": 0.9789740355899498,
+    "tau": 0.0031177204076634647,
+    "gamma": 0.9738697318521434,
     "train_freq": 4,
     "gradient_steps": 4,
-    "target_update_interval": 4498,
-    "exploration_fraction": 0.11460338059193781,
-    "exploration_initial_eps": 0.9364400728956787,
-    "exploration_final_eps": 0.011845254714880403,
-    "net_arch_size": 64,
+    "target_update_interval": 4807,
+    "exploration_fraction": 0.11199631981872485,
+    "exploration_initial_eps": 0.9510470023306554,
+    "exploration_final_eps": 0.010246952257968041,
+    "net_arch_size": 256,
     "net_arch_depth": 4,
     "activation_fn": "tanh"
   },
   "user_attrs": {
-    "mean_reward": -5.849999904632568,
-    "std_blocking_rate": 0.16533828957625027
+    "mean_reward": -5.389999866485596,
+    "std_blocking_rate": 0.15599291650584649
   }
 }
