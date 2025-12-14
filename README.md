@@ -390,8 +390,8 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 - **Convergence**: Model shows strong learning, achieving near-perfect performance
 
 **Training Metrics** (last 100 episodes):
-- Mean Episode Reward: -3.69
-- Mean Blocking Rate: 3.69%
+- Mean Episode Reward: -0.75
+- Mean Blocking Rate: 0.75%
 
 #### Evaluation Results (Fine-tuned)
 
@@ -434,8 +434,8 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 - **Learning**: Agent learns sophisticated strategies to balance between path length and wavelength availability
 
 **Training Metrics** (last 100 episodes):
-- Mean Episode Reward: -5.78
-- Mean Blocking Rate: 5.78%
+- Mean Episode Reward: -3.45
+- Mean Blocking Rate: 3.45%
 
 #### Evaluation Results (Fine-tuned)
 
@@ -445,7 +445,7 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 - Episodes Evaluated: 1000
 - Mean Blocking Rate: **3.18%**
 - Standard Deviation: 0.0529
-- Min/Max Blocking Rate: 0.00% / 31.00%
+- Min/Max Blocking Rate: 0.00% / 30.00%
 
 #### Hyperparameter Comparison: Fine-Tuned vs Standard
 
@@ -463,7 +463,7 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 
 **Comparison**: Fine-tuned configuration achieved **3.18% blocking**, while standard configuration achieved comparable performance, with differences within expected variance. This confirms that extensive hyperparameter search provides minimal benefit.
 
-**Analysis**: With reduced capacity (only 10 wavelengths per link), the DQN agent achieves excellent performance with just 3.36% blocking rate. Despite having 50% fewer resources, the agent learned to make strategic routing decisions that significantly outperform baselines: **91.9% improvement over random policy** (74% blocking) and **60% improvement over shortest-path heuristics** (15% blocking). The median blocking rate is 0%, indicating that most episodes experience perfect or near-perfect allocation. The agent successfully adapted its policy to work within resource constraints.
+**Analysis**: With reduced capacity (only 10 wavelengths per link), the DQN agent achieves excellent performance with just 3.18% blocking rate. Despite having 50% fewer resources, the agent learned to make strategic routing decisions that significantly outperform baselines: **91.9% improvement over random policy** (74% blocking) and **60% improvement over shortest-path heuristics** (15% blocking). The median blocking rate is 0%, indicating that most episodes experience perfect or near-perfect allocation. The agent successfully adapted its policy to work within resource constraints.
 
 ---
 
@@ -475,19 +475,19 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 |--------|---------------------|-------------------|---------------------|-------------------|
 | Training Episodes | 1000 | 1000 | 1000 | 1000 |
 | Optuna Trials | 100 | N/A | 100 | N/A |
-| Network Architecture | 4×64 (tanh) | 2×64 (relu) | 2×64 (tanh) | 2×64 (relu) |
-| Learning Rate | 0.000305 | 0.0001 | 0.000028 | 0.0001 |
+| Network Architecture | 4×256 (tanh) | 2×64 (relu) | 2×128 (tanh) | 2×64 (relu) |
+| Learning Rate | 0.000697 | 0.0001 | 0.000279 | 0.0001 |
 | Batch Size | 32 | 64 | 128 | 64 |
-| Final Training Blocking | 3.69% | 3.69% | 5.78% | 5.78% |
-| **Eval Mean Blocking** | **0.000%** | **0.00%** | **3.38%** | **3.36%** |
-| Eval Std Blocking | 0.0000 | 0.0000 | 0.0537 | 0.0537 |
-| Eval Max Blocking | 0% | 0.00% | 32.00% | 31.00% |
+| Final Training Blocking | 0.75% | 3.69% | 3.45% | 5.78% |
+| **Eval Mean Blocking** | **0.000%** | **0.00%** | **3.18%** | **3.36%** |
+| Eval Std Blocking | 0.0000 | 0.0000 | 0.0529 | 0.0537 |
+| Eval Max Blocking | 0% | 0.00% | 30.00% | 31.00% |
 | Improvement vs Random | 92% | 92% | 91.9% | 91.9% |
 | Improvement vs Shortest Path | 60% | 60% | 60% | 60% |
 
 **Key Observations**:
 1. **Exceptional Performance**: DQN achieved 0% blocking for capacity=20 and only 3.18% for capacity=10, demonstrating highly effective learning
-2. **Hyperparameter Robustness**: Fine-tuned (Optuna) and standard configurations achieved nearly identical performance, with differences within statistical variance (0.02% for capacity=10)
+2. **Hyperparameter Robustness**: Fine-tuned (Optuna) and standard configurations achieved nearly identical performance, with differences within statistical variance 
 3. **Optuna Validation**: 100 trials per capacity confirmed that standard DQN hyperparameters were already in an optimal region for this problem
 4. **Resource Adaptation**: Despite 50% fewer wavelengths, capacity=10 maintains excellent performance (96.82% success rate)
 5. **Generalization**: Evaluation performance exceeded training performance, showing strong generalization to unseen request patterns
