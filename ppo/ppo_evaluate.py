@@ -13,7 +13,7 @@ from stable_baselines3 import PPO
 
 # make sure project root is on path so rsaenv can be imported
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from rsaenv import RSAEnv  # actual environment class
+from rsaenv import RSAEnv # actual environment class
 
 def load_eval_requests(data_dir='data/eval'):
     """Return sorted list of CSV eval files.
@@ -29,7 +29,7 @@ def load_eval_requests(data_dir='data/eval'):
         candidate = os.path.join(project_root, data_dir)
         if os.path.exists(candidate): data_dir = candidate
 
-    # glob all CSV files that start with 'requests-'
+    # Find files files that start with 'requests-'
     files = sorted(glob.glob(os.path.join(data_dir, 'requests-*.csv')))
     if not files: raise FileNotFoundError(f"No evaluation files found in '{data_dir}'")
     return files
@@ -55,19 +55,19 @@ def evaluate_model(model, capacity, eval_files, deterministic=True):
         env = RSAEnv(capacity=capacity, request_file=req_file)
         obs, info = env.reset() # Gym API returns (obs, info)
         done = False
-        ep_reward = 0 # track cumulative reward
+        episode_reward = 0 # track cumulative reward
 
         # run one episode
         while not done:
             # get action from model, deterministic avoids exploration
             action, _ = model.predict(obs, deterministic=deterministic)
             obs, reward, terminated, truncated, info = env.step(action)
-            ep_reward += reward
+            episode_reward += reward
             done = terminated or truncated
 
         # at episode end, env provides 'blocking_rate' in info dict
         episode_blocking_rates.append(info['blocking_rate'])
-        episode_rewards.append(ep_reward)
+        episode_rewards.append(episode_reward)
 
         # simple progress feedback every 50 episodes
         if (i + 1) % 50 == 0: print(f"  Evaluated {i+1}/{len(eval_files)} episodes")
@@ -82,7 +82,7 @@ def evaluate_model(model, capacity, eval_files, deterministic=True):
 
 
 def plot_evaluation_results(eval_metrics, capacity, save_path=None):
-    """Plot episode blocking rates with moving average and mean line."""
+    # Plot episode blocking rates with moving average and mean line
     episodes = range(1, len(eval_metrics['episode_blocking_rates']) + 1)
     blocking_rates = eval_metrics['episode_blocking_rates']
 

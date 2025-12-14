@@ -2,8 +2,6 @@
 
 This folder implements a PPO-based training and evaluation pipeline for the
 Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
-It mirrors the DQN pipeline so results are directly comparable while using
-an on-policy algorithm (PPO) instead of DQN.
 
 Table of Contents
 - How to Execute
@@ -17,6 +15,23 @@ Table of Contents
 
 ---
 
+## How to Run
+
+From the project root (recommended):
+
+```zsh
+python3 -u ppo/ppo_runner.py    # trains PPO agents (capacity 20 and 10)
+python3 -u ppo/ppo_evaluate.py  # evaluates saved models on data/eval/
+```
+
+Or run the helper from inside the `ppo/` folder (keeps outputs confined to `ppo/`):
+
+```zsh
+cd ppo
+chmod +x run_all.sh
+./run_all.sh
+```
+
 ## How to Execute
 
 ### Prerequisites
@@ -29,10 +44,15 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you prefer not to use a venv, install packages globally:
+### Run the full pipeline (Optuna tuning + train + eval)
+
+We included a helper `ppo/run_all.sh` which orchestrates Optuna hyperparameter tuning followed by training and evaluation. It is designed to run from inside `ppo/` and keeps all outputs inside the `ppo/` directory.
+
+Example (full run):
 
 ```bash
-pip install -r requirements.txt
+# From repo root
+bash ppo/run_all.sh
 ```
 
 ### Training (single-run)
@@ -44,50 +64,6 @@ python3 -u ppo/ppo_runner.py
 ```
 
 This will run training for both capacity 20 and 10, create models in `ppo/models/`, and store plots and metrics under `ppo/`.
-
-### Run the full pipeline (Optuna tuning + train + eval)
-
-We included a helper `ppo/run_all.sh` which orchestrates Optuna hyperparameter tuning followed by training and evaluation. It is designed to run from inside `ppo/` and keeps all outputs inside the `ppo/` directory.
-
-By default it will detect the project venv python at `<project-root>/venv/bin/python` and use it. If not present it falls back to `python3`.
-
-Example (full run):
-
-```bash
-# From repo root
-bash ppo/run_all.sh
-```
-
-`run_all.sh` supports configuration through environment variables (so you can tune and test quickly):
-
-- `CAPACITIES` — capacities to optimize and train (comma-separated, default `20,10`)
-- `TRIALS` — number of optuna trials per capacity (default `50`)
-- `N_JOBS` — optuna `n_jobs` parallelism (default `-1`)
-- `N_TRAIN_EPISODES` — number of episodes per optuna trial (default `200`)
-- `N_FINAL_EPISODES` — number of episodes for final optimized model training (default `1000`)
-- `SKIP_TUNING` — set to `true` to skip optuna tuning and only run training/evaluation
-- `TRAIN_FINAL` — set to `false` to disable automatic training of the final model after optuna
-- `DATA_DIR` — optional path to training data directory (relative to project root or absolute). Example: `--data-dir data/my_train` passed to optuna script.
-
-Examples:
-
-Quick smoke test (very small):
-
-```bash
-TRIALS=1 N_TRAIN_EPISODES=1 N_FINAL_EPISODES=1 N_JOBS=1 bash ppo/run_all.sh
-```
-
-Skip tuning and run standard training & evaluation:
-
-```bash
-SKIP_TUNING=true bash ppo/run_all.sh
-```
-
-Full optuna and final training (careful: slow):
-
-```bash
-TRIALS=50 N_TRAIN_EPISODES=200 N_FINAL_EPISODES=1000 N_JOBS=-1 bash ppo/run_all.sh
-```
 
 ### Optuna Hyperparameter Tuning (standalone)
 
@@ -102,13 +78,6 @@ python3 -u ppo/ppo_optuna_tuning.py \
   --n-jobs -1 \
   --train-final --no-prompt
 ```
-
-Key flags:
-- `--capacities` — comma-separated list of capacities to optimize (default `20,10`)
-- `--data-dir` — optional training data directory (relative to project root or absolute). Default: `project_root/data/train`
-- `--n-trials`, `--n-training-episodes-per-trial`, `--n-final-training-episodes`, `--n-jobs` — control the tuning workload
-- `--train-final` — automatically train optimized final models with the best hyperparameters
-- `--no-prompt` — run non-interactively; implies `--train-final` if a prompt would otherwise appear
 
 This script writes:
 - `ppo/optuna_studies/ppo_study_capacity_*.db` (sqlite) for resuming or analyzing studies
@@ -189,39 +158,12 @@ returns no allocation). This keeps the action interface fixed for PPO.
 - Successful allocation: `0`
 - Blocked request: `-1`
 
-The cumulative episode reward is the negative of the number of blocked
-requests. You may consider reward shaping (e.g., +1 for success) to help
-PPO learn faster; this README keeps the original scheme for parity with DQN.
-
----
-
-## Training Setup (PPO)
-
-Key points about the PPO training implementation in `ppo/ppo_runner.py`:
-
-- Uses Stable-Baselines3 `PPO` with `MlpPolicy` (default MLP hidden sizes)
-- Training is on episodes built from CSV files in `data/train/` (one file = one episode)
-- `ppo_env.create_env()` provides a `Monitor`-wrapped MultiFileEnv to cycle files
-- Metrics (episode rewards & blocking rates) are collected with a custom callback
-
-Suggested default hyperparameters (in the script):
-
-```python
-learning_rate = 3e-4
-n_steps = 2048
-batch_size = 64
-n_epochs = 10
-gamma = 0.99
-```
-
-These are sensible defaults for PPO; tune them as needed.
-
 ---
 
 ## Evaluation
 
 The evaluation script loads saved PPO models and runs them deterministically
-on the held-out files in `data/eval/`. It records per-episode blocking rates
+on the files in `data/eval/`. It records per-episode blocking rates
 and generates plots that show the raw blocking rates and a moving average.
 
 By default it evaluates both capacities (20 and 10) and saves JSON results
@@ -248,8 +190,7 @@ ppo/
 ## Results
 
 This section presents training and evaluation results for PPO agents trained
-with two capacity configurations (20 and 10 wavelengths per link). Results
-are structured similarly to the DQN README for easy comparison.
+with two capacity configurations (20 and 10 wavelengths per link).
 
 ### Part 1: Link Capacity = 20
 
@@ -340,13 +281,6 @@ agent handles resource-constrained scenarios compared to the higher-capacity cas
 - Check `results/ppo_eval_capacity_*.json` for evaluation metrics (mean, std, min, max blocking rates)
 - Plots visualize the trends: training plots show learning progress, evaluation plots show generalization
 
-**Key Observations**:
-1. PPO trained successfully on both capacity configurations
-2. Training curves (left subplot) show reward trends; blocking rate curves (right subplot) show optimization objective
-3. Evaluation plots reveal performance on unseen data; stable blocking rates indicate good generalization
-4. The gap between capacity=20 and capacity=10 reflects resource availability impact on the RSA problem
-5. PPO's on-policy learning approach differs from DQN; you may see different learning dynamics and final performance
-
 ---
 
 ### Files Generated
@@ -370,22 +304,6 @@ After running `ppo/run_all.sh` or individual scripts:
 - `ppo/plots/ppo_evaluation_capacity_10.png` — Evaluation plots (capacity=10)
 
 ---
-
-## Notes and References
-
-- **Environment**: Reuses `rsaenv.py` (project root) so PPO and DQN are directly comparable
-- **Reward shaping**: Currently uses 0 for success, -1 for block; consider +1 for success to accelerate learning
-- **Action masking**: Could implement for more efficient learning (advanced)
-- **Hyperparameters**: See `ppo_runner.py` for tunable PPO settings (learning_rate, n_steps, n_epochs, etc.)
-
-**References**:
-1. Proximal Policy Optimization (PPO): Schulman et al., "Proximal Policy Optimization Algorithms," 2017
-2. Stable-Baselines3: https://stable-baselines3.readthedocs.io/
-3. Gymnasium: https://gymnasium.farama.org/
-# PPO (Proximal Policy Optimization) for RSA Project
-
-This folder contains a PPO-based training and evaluation pipeline for the
-Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
 
 ## Contents
 
@@ -426,63 +344,3 @@ following directories will be created in `ppo/`:
 - `plots/` - Training and evaluation PNG plots for each capacity.
 - `results/` - Evaluation JSON results (per-episode blocking rates).
 - `tensorboard_logs/` - TensorBoard logs for PPO training.
-
-## How to Run
-
-From the project root (recommended):
-
-```zsh
-python3 -u ppo/ppo_runner.py    # trains PPO agents (capacity 20 and 10)
-python3 -u ppo/ppo_evaluate.py  # evaluates saved models on data/eval/
-```
-
-Or run the helper from inside the `ppo/` folder (keeps outputs confined to `ppo/`):
-
-```zsh
-cd ppo
-chmod +x run_all.sh
-./run_all.sh
-```
-
-## Notes & Tips
-
-- **Datasets**: Ensure `data/train/` and `data/eval/` exist at the project root
-  and contain files named `requests-*.csv`. The PPO scripts resolve these
-  paths relative to the project root so you can run from `ppo/` or the
-  project root.
-- **Quick smoke test**: For fast verification, reduce `num_train_episodes`
-  inside `ppo_runner.py` (or add CLI flags) to a small number (5-10).
-- **Reward shaping**: The current environment uses `0` for success and `-1`
-  for blocked requests; if PPO struggles to learn, consider awarding
-  `+1` for successful allocations to densify the reward signal.
-- **Action masking**: `RSAEnv` uses a fixed `Discrete(8)` action space and
-  marks invalid actions by failing allocation. For more efficient learning
-  you could implement action masking in a custom policy (advanced).
-
-## Troubleshooting & Common Issues
-
-- Missing dependencies: Use the venv instructions above and run:
-  ```bash
-  source venv/bin/activate
-  pip install -r requirements.txt
-  ```
-
-- Running `ppo_evaluate.py` from the repository root won't find `ppo/models`
-  unless you copy the models to the root `models/` folder. We recommend:
-  ```bash
-  cd ppo
-  python3 -u ppo_evaluate.py
-  ```
-
-- If the optuna tuning does not start or fails due to module import errors,
-  ensure `optuna` is installed in your environment and that you're running
-  the script using the project's virtual environment (if you created it).
-
-- If training fails due to `FileNotFoundError` for training/eval CSVs, verify
-  the dataset paths are present under `data/train` and `data/eval` as expected.
-  For custom datasets, pass `--data-dir` to `ppo_optuna_tuning.py` or set
-  `DATA_DIR` env var for `run_all.sh`.
-
-- Running a full Optuna tuning is resource and time-intensive — use
-  smaller `n_trials` and fewer episodes for quick smoke tests, or run
-  `n_jobs=1` for single-threaded testing.
