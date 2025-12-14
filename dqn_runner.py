@@ -175,7 +175,7 @@ def create_env(capacity, request_files):
     return env
 
 
-def train_dqn(capacity, num_episodes=1000, save_name='dqn_model', verbose=1):
+def train_dqn(capacity, num_episodes=1000, save_name='dqn_model', verbose=1, use_optimized_params=True):
     """
     Train a DQN agent for RSA with specified link capacity.
     
@@ -184,12 +184,15 @@ def train_dqn(capacity, num_episodes=1000, save_name='dqn_model', verbose=1):
         num_episodes: Number of training episodes
         save_name: Name for saving the trained model
         verbose: Verbosity level
+        use_optimized_params: If True, use Optuna-optimized hyperparameters
     
     Returns:
         Trained model and metrics
     """
     print(f"\n{'='*60}")
     print(f"Training DQN with capacity={capacity}")
+    if use_optimized_params:
+        print("Using Optuna-optimized hyperparameters")
     print(f"{'='*60}\n")
     
     # Load training data
@@ -199,74 +202,91 @@ def train_dqn(capacity, num_episodes=1000, save_name='dqn_model', verbose=1):
     # Create environment
     env = create_env(capacity, request_files)
     
-    # Create DQN agent with carefully tuned hyperparameters
-    # Each hyperparameter choice affects learning speed, stability, and final performance
+    # Hyperparameters optimized by Optuna for each capacity
+    if use_optimized_params:
+        if capacity == 20:
+            # Best params from Optuna for capacity=20
+            hyperparams = {
+                'learning_rate': 0.0003050684649668781,
+                'buffer_size': 200000,
+                'learning_starts': 930,
+                'batch_size': 32,
+                'tau': 0.006042117664422209,
+                'gamma': 0.9789740355899498,
+                'train_freq': 4,
+                'gradient_steps': 4,
+                'target_update_interval': 4498,
+                'exploration_fraction': 0.11460338059193781,
+                'exploration_initial_eps': 0.9364400728956787,
+                'exploration_final_eps': 0.011845254714880403,
+                'net_arch_size': 64,
+                'net_arch_depth': 4,
+                'activation_fn': 'tanh'
+            }
+        else:  # capacity == 10
+            # Best params from Optuna for capacity=10
+            hyperparams = {
+                'learning_rate': 2.78653872562099e-05,
+                'buffer_size': 100000,
+                'learning_starts': 921,
+                'batch_size': 128,
+                'tau': 0.01678445113571085,
+                'gamma': 0.9996007314306421,
+                'train_freq': 1,
+                'gradient_steps': 2,
+                'target_update_interval': 3645,
+                'exploration_fraction': 0.20913688873938494,
+                'exploration_initial_eps': 0.9538258907476982,
+                'exploration_final_eps': 0.010454736008238236,
+                'net_arch_size': 64,
+                'net_arch_depth': 2,
+                'activation_fn': 'tanh'
+            }
+    else:
+        # Default hyperparameters (original from file)
+        hyperparams = {
+            'learning_rate': 1e-4,
+            'buffer_size': 200000,
+            'learning_starts': 1000,
+            'batch_size': 64,
+            'tau': 0.005,
+            'gamma': 0.99,
+            'train_freq': 4,
+            'gradient_steps': 1,
+            'target_update_interval': 1000,
+            'exploration_fraction': 0.3,
+            'exploration_initial_eps': 1.0,
+            'exploration_final_eps': 0.05,
+            'net_arch_size': 64,
+            'net_arch_depth': 2,
+            'activation_fn': 'relu'
+        }
+    
+    # Network architecture
+    import torch.nn as nn
+    net_arch = [hyperparams['net_arch_size']] * hyperparams['net_arch_depth']
+    activation_fn = nn.Tanh if hyperparams['activation_fn'] == 'tanh' else nn.ReLU
+    
+    # Create DQN agent with hyperparameters
     model = DQN(
-        "MlpPolicy",  # Multi-layer perceptron: [input→64→64→8 Q-values]
+        "MlpPolicy",
         env,
-        
-        # LEARNING RATE (1e-4 = 0.0001)
-        # - Controls how quickly weights are updated
-        # - Too high: unstable, diverges
-        # - Too low: slow convergence
-        # - 1e-4 is standard for DQN
-        learning_rate=1e-4,
-        
-        # REPLAY BUFFER SIZE (200,000 transitions)
-        # - Stores (state, action, reward, next_state) tuples
-        # - Larger buffer = more diverse training data, better sample efficiency
-        # - Increased from 100k to 200k for improved performance
-        # - 200k can store ~2000 episodes worth of experience
-        buffer_size=200000,
-        
-        # LEARNING STARTS (wait 1000 steps before training)
-        # - Fill buffer with random exploration first
-        # - Ensures diverse initial experiences
-        # - Prevents early overfitting to limited data
-        learning_starts=1000,
-        
-        # BATCH SIZE (64 samples per gradient update)
-        # - Number of transitions sampled from replay buffer for each update
-        # - Larger = more stable gradients but slower
-        # - 64 is a good balance for this problem size
-        batch_size=64,
-        
-        # TAU (0.005 = soft update coefficient)
-        # - Controls target network update: θ_target ← τ*θ + (1-τ)*θ_target
-        # - Small tau = slow target updates = more stable learning
-        # - Prevents target network from changing too quickly
-        tau=0.005,
-        
-        # GAMMA (0.99 = discount factor)
-        # - Importance of future rewards: Q(s,a) = r + γ*max Q(s',a')
-        # - 0.99 means agent values long-term consequences
-        # - Critical for RSA: current decisions affect future capacity
-        gamma=0.99,
-        
-        # TRAIN FREQ (update every 4 steps)
-        # - How often to perform gradient descent
-        # - More frequent = faster learning but more computation
-        train_freq=4,
-        
-        # GRADIENT STEPS (1 update per training trigger)
-        # - How many gradient updates to perform when training
-        # - More steps = learn more from buffer but risk overfitting
-        gradient_steps=1,
-        
-        # TARGET UPDATE INTERVAL (every 1000 steps)
-        # - How often to update target network (used for computing target Q-values)
-        # - Larger = more stable but slower to track policy improvements
-        target_update_interval=1000,
-        
-        # EXPLORATION SCHEDULE (epsilon-greedy)
-        # - exploration_fraction=0.3: Anneal epsilon over first 30% of training
-        # - Start with random exploration (eps=1.0)
-        # - End with mostly exploitation (eps=0.05, 5% random)
-        # - Allows agent to explore initially, then refine learned policy
-        exploration_fraction=0.3,
-        exploration_initial_eps=1.0,
-        exploration_final_eps=0.05,
-        
+        learning_rate=hyperparams['learning_rate'],
+        buffer_size=hyperparams['buffer_size'],
+        learning_starts=hyperparams['learning_starts'],
+        batch_size=hyperparams['batch_size'],
+        tau=hyperparams['tau'],
+        gamma=hyperparams['gamma'],
+        train_freq=hyperparams['train_freq'],
+        gradient_steps=hyperparams['gradient_steps'],
+        target_update_interval=hyperparams['target_update_interval'],
+        exploration_fraction=hyperparams['exploration_fraction'],
+        exploration_initial_eps=hyperparams['exploration_initial_eps'],
+        exploration_final_eps=hyperparams['exploration_final_eps'],
+        policy_kwargs=dict(
+            net_arch=net_arch,
+            activation_fn=activation_fn
+        ),
         verbose=verbose,
         tensorboard_log=f"./tensorboard_logs/dqn_capacity_{capacity}/"
     )
@@ -391,7 +411,8 @@ def main():
     os.makedirs('results', exist_ok=True)
     
     # Training parameters
-    num_train_episodes = 1000  # Adjust based on available training data
+    num_train_episodes = 1000
+    use_optimized = True  # Set to False to use default hyperparameters
     
     # Part 1: Train with capacity=20
     print("\n" + "="*70)
@@ -402,7 +423,8 @@ def main():
         capacity=20,
         num_episodes=num_train_episodes,
         save_name='models/dqn_capacity_20',
-        verbose=1
+        verbose=1,
+        use_optimized_params=use_optimized
     )
     
     plot_training_results(
@@ -420,7 +442,8 @@ def main():
         capacity=10,
         num_episodes=num_train_episodes,
         save_name='models/dqn_capacity_10',
-        verbose=1
+        verbose=1,
+        use_optimized_params=use_optimized
     )
     
     plot_training_results(
