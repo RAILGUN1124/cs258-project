@@ -78,6 +78,7 @@ This will:
 project/
 ├── nwutil.py              # Network utilities and graph generation
 ├── rsaenv.py              # Custom Gym environment for RSA
+├── dqn_optuna_tuning.py   # Tuning Script
 ├── dqn_runner.py          # Training script
 ├── evaluate.py            # Evaluation script
 ├── README.md              # This file
@@ -86,6 +87,8 @@ project/
 │   └── eval/             # Evaluation request files
 ├── models/               # Saved trained models
 ├── plots/                # Generated plots
+├── tensorboard_logs/     # Tensorboard logs
+├── optuna_studies/       # Optuna studies
 └── results/              # Evaluation results (JSON)
 ```
 
@@ -477,8 +480,8 @@ This suggests that the RSA problem structure (discrete actions, sparse rewards, 
 | Batch Size | 32 | 64 | 128 | 64 |
 | Final Training Blocking | 3.69% | 3.69% | 5.78% | 5.78% |
 | **Eval Mean Blocking** | **0.00001%** | **0.00%** | **3.38%** | **3.36%** |
-| Eval Std Blocking | 0.000316 | 0.0000 | 0.0540 | 0.0537 |
-| Eval Max Blocking | 1% | 0.00% | 31.00% | 31.00% |
+| Eval Std Blocking | 0.000316 | 0.0000 | 0.0537 | 0.0537 |
+| Eval Max Blocking | 1% | 0.00% | 32.00% | 31.00% |
 | Improvement vs Random | 92% | 92% | 91.9% | 91.9% |
 | Improvement vs Shortest Path | 60% | 60% | 60% | 60% |
 
