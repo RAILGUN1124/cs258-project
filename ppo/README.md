@@ -3,15 +3,17 @@
 This folder implements a PPO-based training and evaluation pipeline for the
 Routing and Spectrum Allocation (RSA) problem used in the CS 258 project.
 
-Table of Contents
-- How to Execute
-- Environment
-- State Representation and State Transitions
-- Action Representation
-- Reward Function
-- Training Setup (PPO)
-- Evaluation
-- File Structure & Outputs
+## Table of Contents
+
+1. [How to Run](#how-to-run)
+2. [Environment](#environment)
+3. [State Representation and State Transitions](#state-representation-and-state-transitions)
+4. [Action Representation](#action-representation)
+5. [Reward Function](#reward-function)
+6. [Results](#results)
+7. [Files Generated](#files-generated)
+8. [Design and Architecture](#design-and-architecture)
+
 
 ---
 
